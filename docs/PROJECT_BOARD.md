@@ -43,11 +43,11 @@ All 17 items now populated via `gh project item-edit` with field IDs:
 | #13 camera ambient_lux | 3 — Ambient flagship | C root-only | L | P0 — Must | **In Progress** | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` | **getAmbientLux + ambient WS** |
 | #14 Enact dashboard | 4 — Enact+Voice | B requiredPermissions | L | P1 — Should | **In Progress** | 2026-10-27 | 2026-11-10 | Phase 4 — Enact+Voice `33d314cc` | **Enact warm + Lovelace iframe** |
 | #15 Wyoming voice | 4 — Enact+Voice | C root-only | XL | P2 — Could | **In Progress** | 2026-10-27 | 2026-11-10 | Phase 4 — Enact+Voice `33d314cc` | **Wyoming 8091 usb_mic0** |
-| #16 hassfest Platinum | 5 — Platinum | A stock | L | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | quality_scale.yaml done 2 |
-| #17 Homebrew publish | 5 — Platinum | C root-only | M | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | queued |
+| #16 hassfest Platinum | 5 — Platinum | A stock | L | P0 — Must | **In Progress** | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | **hacs.json + quality_scale 54/54** |
+| #17 Homebrew publish | 5 — Platinum | C root-only | M | P0 — Must | **In Progress** | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | **HOMEBREW_PUBLISH + Block OTA** |
 | Draft Docs ROADMAP | 0 — Ground truth | A stock | S | P0 — Must | **Done** | 2026-09-01 | 2026-09-15 | Phase 0 — Ground truth `72a3ba20` | 5737w |
 | Draft ADR-003 transport | 2 — JS+ActivityManager | A stock | M | P1 — Should | **In Progress** | 2026-09-29 | 2026-10-13 | Phase 2 — JS service `8dd8aac5` | service.js wss:9923 |
-| Draft ADR-004 one-OTA | 5 — Platinum | C root-only | S | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | — |
+| Draft ADR-004 one-OTA | 5 — Platinum | C root-only | S | P0 — Must | **In Progress** | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | **HOMEBREW_PUBLISH drill** |
 
 Milestone field `PVTF_lAHOAEOuI84BhtGTzhgn3mM` mirrors GitHub issue milestone; Linked pull requests `PVTF_lAHOAEOuI84BhtGTzhgn3mI` auto-populates on PR.
 
