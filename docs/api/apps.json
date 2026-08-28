@@ -24,7 +24,7 @@
         "rootRequired": true,
         "ipkUrl": "https://belikh.github.io/lgtv-webos-homeassistant/com.ha.tvbridge_1.0.0_all.ipk",
         "ipkHash": {
-          "sha256": "0732fdc70cfacac989100650d457c1e896fa3300aaf0cba3ed6c646f3e2d2d6d"
+          "sha256": "e386b142666455ac46611cd5d3046454563e139233a94ce57a28b02e906e9cca"
         },
         "ipkSize": 54904
       },
