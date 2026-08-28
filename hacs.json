@@ -3,7 +3,7 @@
   "homeassistant": "2026.8.0",
   "render_readme": true,
   "content_in_root": false,
-  "filename": "com.ha.tvbridge_1.0.0_all.ipk",
+  "filename": "com.ha.tvbridge_1.0.1_all.ipk",
   "country": ["AU"],
   "hacs": "1.40.0"
 }

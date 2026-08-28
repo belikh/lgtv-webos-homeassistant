@@ -95,7 +95,7 @@ Second-mode issue mirrored to https://github.com/belikh/ha-lg-webos-tv/issues/10
 ## Code progress — 2026-08-28
 
 - **Sister** `ha_chros73_bscpylgtv` — `const.py` companion constants, `coordinator.py` `BscPyLGTVClientWrapper` + `probe_companion` HMAC, `config_flow.py` options, `diagnostics.py` redact, `sensor.py` `ambient_lux` gated, `py.typed` + `quality_scale.yaml` Platinum 2 done; verify `ruff All checks passed!` `mypy 16 files no issues` `pytest 330 passed 10 skipped` — ready-for-review.
-- **Main** `lgtv-webos-homeassistant` — `com.ha.tvbridge/` 1.0.0 + `com.ha.tvbridge.service/` `service.js` `wss:9923` + `ares` `appinfo.json` + `index.html`; verify `npm ci && npm run typecheck && npm run build` ✔ `npx ares-package` ✔ 4.7M `build/com.ha.tvbridge_1.0.0_all.ipk` — ready-for-review.
+- **Main** `lgtv-webos-homeassistant` — `com.ha.tvbridge/` 1.0.1 + `com.ha.tvbridge.service/` `service.js` `wss:9923` + `ares` `appinfo.json` + `index.html`; verify `npm ci && npm run typecheck && npm run build` ✔ `npx ares-package` ✔ 49 KiB `build/com.ha.tvbridge_1.0.1_all.ipk` — ready-for-review.
 - **Project** — 6 milestones now have `dueOn` 2026-09-15→2026-12-01, 8 issue comments 5448688xxx+5448692xxx, Status 3× Done Phase1 + 3× In Progress Phase2.
 
 ## Verify

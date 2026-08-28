@@ -1,4 +1,4 @@
-# Homebrew Channel publish — `com.ha.tvbridge` `1.0.0`
+# Homebrew Channel publish — `com.ha.tvbridge` `1.0.1`
 
 > **Root companion for OLED48CXPTA 5.4.1 04.40.16 AU.** This document is the Phase 5 publish contract for Iteration `12e7167c` 2026-11-10×21 — it satisfies Issues #16 #17 and Draft ADR-004 (One-OTA fragile). It complements `docs/ROADMAP.md` §5 Packaging and §11 Phase 5, and `native/README.md` install contract.
 
@@ -17,8 +17,8 @@ Follow `webosbrew/apps` submission (see `apps-repository-webos-homebrew-project`
    ```sh
    npm ci && npm run typecheck && npm run build
    ares-package com.ha.tvbridge com.ha.tvbridge.service -o build
-   # → build/com.ha.tvbridge_1.0.0_all.ipk  (4.7 MiB expected)
-   sha256sum build/com.ha.tvbridge_1.0.0_all.ipk > build/com.ha.tvbridge_1.0.0_all.ipk.sha256
+    # → build/com.ha.tvbridge_1.0.1_all.ipk  (≈49 KiB — bundles only ws@7.5.10; the TV runs Node 12, so ws@8 MUST NOT be included or service.js fails to parse)
+   sha256sum build/com.ha.tvbridge_1.0.1_all.ipk > build/com.ha.tvbridge_1.0.1_all.ipk.sha256
    ```
 
 2. Fork `webosbrew/apps` and add `com.ha.tvbridge` manifest under `apps/com.ha.tvbridge/` with `appinfo.json` `id`, `version`, `title`, `icon`, `category`, `tileIcon`, `screenshots`, and `ipkUrl` pointing at the GitHub Release asset (Homebrew Channel requires an HTTP `ipkUrl`; it is HTTP-only, not `https` via HB's `install` — HA serves it via its own `http` component if needed).
@@ -30,7 +30,7 @@ Fallback when Homebrew Channel is not yet installed on the TV:
 
 ```sh
 # via Dropbear 22 (root, Homebrew default) or ares prisoner 9922 (dev-mode)
-scp build/com.ha.tvbridge_1.0.0_all.ipk root@10.1.1.209:/tmp/com.ha.tvbridge.ipk
+scp build/com.ha.tvbridge_1.0.1_all.ipk root@10.1.1.209:/tmp/com.ha.tvbridge.ipk
 ssh root@10.1.1.209 "sha256sum /tmp/com.ha.tvbridge.ipk"
 luna-send -n 1 -f luna://com.webos.appInstallService/dev/install \
   '{"id":"com.ha.tvbridge","ipkUrl":"/tmp/com.ha.tvbridge.ipk","subscribe":true}'
@@ -49,13 +49,13 @@ luna-send -n 1 luna://org.webosbrew.hbchannel.service/install \
   '{"ipkUrl":"http://<ha>:8123/api/hbchannel/com.ha.tvbridge.ipk","ipkHash":"sha256:<64-hex>","subscribe":true}'
 ```
 
-`ipkHash` is the `sha256sum` of the `build/com.ha.tvbridge_1.0.0_all.ipk` asset attached to the GitHub Release (`softprops/action-gh-release` in `.github/workflows/release.yaml` analogue). The HA side (`ha_chros73_bscpylgtv`) stores the expected hash in `diagnostics` redaction and verifies it via `sha256sum -c` before `ls-control scan-services`. Downgrade semantics on 5.4.1 require `force` flag inspection and FIFO wait; rollback is `com.webos.appInstallService/remove`.
+`ipkHash` is the `sha256sum` of the `build/com.ha.tvbridge_1.0.1_all.ipk` asset attached to the GitHub Release (`softprops/action-gh-release` in `.github/workflows/release.yaml` analogue). The HA side (`ha_chros73_bscpylgtv`) stores the expected hash in `diagnostics` redaction and verifies it via `sha256sum -c` before `ls-control scan-services`. Downgrade semantics on 5.4.1 require `force` flag inspection and FIFO wait; rollback is `com.webos.appInstallService/remove`.
 
 Version pinning is HA-owned: the `companion_present` coordinator flag (§10 of final report) compares `installed.version` TXT (`_lg-ha-companion._tcp` mDNS ` TXT v=1 sv=... hash=...`) against this repo's `com.ha.tvbridge/appinfo.json` `version` and surfaces a Repair issue *Companion update available* rather than auto-forcing, with `diagnostics` redacting `host`, `client_key`, `ipkHash`.
 
 ```sh
 # verify pinning locally
-sha256sum build/com.ha.tvbridge_1.0.0_all.ipk
+sha256sum build/com.ha.tvbridge_1.0.1_all.ipk
 # compare against GitHub Release SHA256 and docs/HOMEBREW_PUBLISH.md release notes
 ```
 
@@ -117,7 +117,7 @@ npm run typecheck
 ares-package --check
 # → no problems detected  exit 0
 ares-package com.ha.tvbridge com.ha.tvbridge.service -o build
-# → build/com.ha.tvbridge_1.0.0_all.ipk  4.7 MiB  exit 0
+    # → build/com.ha.tvbridge_1.0.1_all.ipk  ≈49 KiB  exit 0
 node -e "JSON.parse(require('fs').readFileSync('hacs.json','utf8')); JSON.parse(require('fs').readFileSync('manifest.json','utf8')); console.log('hacs+manifest ok')"
 
 # Sister repo — HA integration (if available)

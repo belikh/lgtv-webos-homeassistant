@@ -814,7 +814,37 @@ function ensureActivity(onReady) {
     return;
   }
 
-  // Activity spec per activity-manager API reference
+  // Primary path: webos-service activityManager.create — the API that run-js-service
+  // honours to keep the process resident. A successfully-registered activity makes
+  // _activities non-empty, which is exactly what stops run-js-service from killing
+  // the process when idle — so the WS server (9923) and ambient/Wyoming loops
+  // survive between HA connections.
+  if (service.activityManager && typeof service.activityManager.create === 'function') {
+    // String form → webos-service builds a known-valid internal spec
+    // (foreground+explicit+subscribe:true, no schedule) and registers it with the
+    // hub. The object form forwarded an invalid schedule.interval and was rejected.
+    let readyCalled = false;
+    const ready = () => {
+      if (!readyCalled) {
+        readyCalled = true;
+        onReady();
+      }
+    };
+    try {
+      // @ts-ignore — webos-service ActivityManager.create(name, callback)
+      service.activityManager.create(ACTIVITY_NAME, (/** @type {any} */ activity) => {
+        console.log('[com.ha.tvbridge.service] ActivityManager.create ok id=' + (activity && activity.activityId));
+        ready();
+      });
+    } catch (/** @type {any} */ err) {
+      console.warn('[com.ha.tvbridge.service] activityManager.create threw', err);
+    }
+    // Safety net: bring up WS even if the create callback is delayed/never fires
+    setTimeout(ready, 4000);
+    return;
+  }
+
+  // Fallback: raw Luna call + FakeActivityManager (legacy / non-webos-service builds)
   const activitySpec = {
     activity: {
       name: ACTIVITY_NAME,
@@ -829,10 +859,6 @@ function ensureActivity(onReady) {
       callback: {
         method: 'luna://' + SERVICE_ID + '/onActivity',
         params: {},
-      },
-      schedule: {
-        // Persist across reboot; interval is heartbeat for power resume
-        interval: '00:00:30',
       },
     },
     start: true,
@@ -1128,6 +1154,7 @@ function startWsServer() {
     // For strict wss, provision cert/key and switch to https.createServer + WebSocket.Server({server})
     wss = new WebSocket.Server({
       port: WS_PORT,
+      host: '0.0.0.0',
       // Verify HMAC at upgrade via query ?token= or Authorization: Bearer
       verifyClient: (/** @type {any} */ info, /** @type {any} */ done) => {
         try {
