@@ -8,17 +8,28 @@
     html, body { margin: 0; padding: 0; background: #111; color: #eee; font-family: system-ui, sans-serif; }
     #root { display: flex; align-items: center; justify-content: center; height: 100vh; flex-direction: column; }
     .badge { padding: 8px 16px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; }
-    .hint { margin-top: 12px; font-size: 12px; color: #888; }
+    .hint { margin-top: 12px; font-size: 12px; color: #888; text-align: center; max-width: 640px; }
+    #lovelace-container { display: none; width: 100%; height: 100vh; position: absolute; top: 0; left: 0; background: #111; }
+    #lovelace { width: 100%; height: 100%; border: 0; background: #111; }
+    #lovelace-status { margin-top: 8px; font-size: 11px; color: #666; max-width: 640px; text-align: center; }
   </style>
 </head>
 <body>
   <div id="root">
     <div class="badge">HA TV Bridge — Enact placeholder (suspended)</div>
-    <div class="hint">Layer 1 WebView — handlesRelaunch:true requiredMemory:120 — JS service holds Activity</div>
+    <div class="hint">Layer 1 WebView — handlesRelaunch:true requiredMemory:120 — JS service holds ActivityManager foreground+explicit+persist to keep PSS 120 warm while suspended</div>
+    <div id="lovelace-status" class="hint">Lovelace warm standby — Lovelace iframe awaiting HA WS subscribe via companion wss:9923</div>
+  </div>
+  <div id="lovelace-container">
+    <iframe id="lovelace" src="about:blank" title="Home Assistant Lovelace" allow="autoplay; fullscreen"></iframe>
   </div>
   <script>
     // Layer 1 behaviour: remain warm when suspended, re-activate on webOSRelaunch.
-    // Phase 2 implements Layer 2 only; this Enact placeholder reserves handlesRelaunch + requiredMemory.
+    // Phase 4 implements Iteration 33d314cc — suspended Enact WebView handlesRelaunch:true
+    // requiredMemory:120 holder + Lovelace iframe warm + Wyoming UMI conditional.
+    // The foreground ActivityManager holder in com.ha.tvbridge.service keeps this
+    // WebView's PSS ~120 MiB warm while visibilityState is hidden; memoryd low threshold
+    // on OSE is 250 MiB (critical 100 MiB), scaled on CX 3 GiB — see docs/ENACT_VOICE.md.
     (function () {
       'use strict';
 
@@ -33,6 +44,105 @@
         if (typeof window !== 'undefined' && window.focus) {
           try { window.focus(); } catch (_e) { /* ignore */ }
         }
+        warmLovelace();
+      }
+
+      /**
+       * Warm the Lovelace iframe without full reload.
+       * Gracefully degrades if no HA URL configured — keeps about:blank.
+       * @type {() => void}
+       */
+      function warmLovelace() {
+        try {
+          var container = document.getElementById('lovelace-container');
+          var frame = document.getElementById('lovelace');
+          var status = document.getElementById('lovelace-status');
+          if (!frame || !container) return;
+          // Only show Lovelace when document is visible and a URL is configured
+          // HA coordinator may pass lovelaceUrl via webOSRelaunch params or localStorage
+          var lovelaceUrl = null;
+          try {
+            lovelaceUrl = window.localStorage ? window.localStorage.getItem('ha_lovelace_url') : null;
+          } catch (_e) { /* ignore */ }
+          if (document.visibilityState === 'visible' && lovelaceUrl && frame.getAttribute('src') === 'about:blank') {
+            frame.setAttribute('src', lovelaceUrl);
+            if (status) status.textContent = 'Lovelace warmed — ' + lovelaceUrl;
+            container.style.display = 'block';
+          } else if (document.visibilityState === 'visible' && lovelaceUrl) {
+            container.style.display = 'block';
+          }
+          // Always ensure connection to companion WS for HA state push
+          ensureHaSubscribe();
+        } catch (_e) { /* ignore */ }
+      }
+
+      /**
+       * Companion WS subscribe stub — receives HA state via wss:9923.
+       * The JS service broadcasts type: ambient / power / volume / app on authenticated WS.
+       * This Enact placeholder subscribes for Lovelace warm updates and forwards to iframe via postMessage.
+       * Stub mode: tolerates missing companion (e.g. typecheck) without throwing.
+       * @type {() => void}
+       */
+      var haSocket = null;
+      var haRetryTimer = null;
+      function ensureHaSubscribe() {
+        if (haSocket && (haSocket.readyState === 0 || haSocket.readyState === 1)) return;
+        // Avoid spamming reconnects when hidden
+        if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+        var WS_URL = 'ws://127.0.0.1:9923';
+        // Prefer wss if page is https (TV self-signed CERT_NONE already tolerated by HA)
+        try {
+          if (window.location && window.location.protocol === 'https:') {
+            WS_URL = 'wss://127.0.0.1:9923';
+          }
+          // Allow override via localStorage for off-TV testing
+          var override = window.localStorage ? window.localStorage.getItem('ha_companion_ws') : null;
+          if (override) WS_URL = override;
+        } catch (_e) { /* ignore */ }
+        try {
+          if (typeof WebSocket === 'undefined') return;
+          // Token is optional for loopback in stub mode; real TV uses HMAC(client_key,'ha-companion/1')
+          var token = '';
+          try { token = window.localStorage ? window.localStorage.getItem('ha_companion_token') || '' : ''; } catch (_e) { /* ignore */ }
+          var url = token ? WS_URL + '?token=' + encodeURIComponent(token) : WS_URL;
+          haSocket = new WebSocket(url);
+          haSocket.onopen = function () {
+            try {
+              if (console && console.log) console.log('[com.ha.tvbridge] Lovelace WS subscribed', WS_URL);
+              var status = document.getElementById('lovelace-status');
+              if (status) status.textContent = 'Lovelace WS connected — receiving HA state';
+              // Minimal subscribe — companion pushes ambient/power/volume without poll
+              haSocket.send(JSON.stringify({ type: 'ping' }));
+              haSocket.send(JSON.stringify({ type: 'getAmbientLux' }));
+            } catch (_e) { /* ignore */ }
+          };
+          haSocket.onmessage = function (ev) {
+            try {
+              var data = typeof ev.data === 'string' ? JSON.parse(ev.data) : null;
+              if (!data) return;
+              if (console && console.log) console.log('[com.ha.tvbridge] Lovelace WS recv', data.type);
+              // Forward HA state to Lovelace iframe via postMessage for Enact Lovelace to render
+              var frame = document.getElementById('lovelace');
+              if (frame && frame.contentWindow) {
+                try { frame.contentWindow.postMessage({ source: 'ha-tvbridge', type: data.type, payload: data.payload }, '*'); } catch (_e2) { /* ignore */ }
+              }
+              // Also update local status for ambient as example
+              if (data.type === 'ambient' && data.payload && typeof data.payload.lux === 'number') {
+                var status = document.getElementById('lovelace-status');
+                if (status) status.textContent = 'Ambient ' + data.payload.lux + ' lx (' + (data.payload.source || 'unknown') + ') — WS live';
+              }
+            } catch (_e) { /* ignore */ }
+          };
+          haSocket.onclose = function () {
+            haSocket = null;
+            if (haRetryTimer) clearTimeout(haRetryTimer);
+            // Reconnect with back-off only when visible
+            haRetryTimer = setTimeout(function () { haRetryTimer = null; ensureHaSubscribe(); }, 5000);
+          };
+          haSocket.onerror = function () {
+            try { haSocket.close(); } catch (_e) { /* ignore */ }
+          };
+        } catch (_e) { /* ignore */ }
       }
 
       // webOSRelaunch is the system callback when handlesRelaunch:true
@@ -42,17 +152,30 @@
         // Expose globally as webOS expects window.webOSRelaunch
         window.webOSRelaunch = function webOSRelaunch(inLaunchParams) {
           // inLaunchParams contains launch parameters from luna or HA coordinator
-          // For Phase 2 headless, we just warm and acknowledge.
-          // Future Enact Lovelace will parse inLaunchParams for dashboard route.
+          // For Enact Lovelace, parse inLaunchParams for dashboard route + HA URL
           if (inLaunchParams && typeof console !== 'undefined' && console.log) {
             console.log('[com.ha.tvbridge] webOSRelaunch', JSON.stringify(inLaunchParams));
           }
+          try {
+            var params = inLaunchParams;
+            if (typeof params === 'string') { try { params = JSON.parse(params); } catch (_e) { params = {}; } }
+            if (params && params.lovelaceUrl && window.localStorage) {
+              try { window.localStorage.setItem('ha_lovelace_url', String(params.lovelaceUrl)); } catch (_e) { /* ignore */ }
+            }
+            if (params && params.companionWs && window.localStorage) {
+              try { window.localStorage.setItem('ha_companion_ws', String(params.companionWs)); } catch (_e) { /* ignore */ }
+            }
+          } catch (_e) { /* ignore */ }
           activate();
         };
 
         document.addEventListener('visibilitychange', function () {
           if (document.visibilityState === 'visible') {
             activate();
+          } else {
+            // Hidden — keep WebView warm via ActivityManager holder, do not close WS aggressively
+            // The foreground Activity in the JS service keeps PSS 120 warm while hidden
+            if (console && console.log) console.log('[com.ha.tvbridge] visibility hidden — ActivityManager holder keeps 120 MiB warm');
           }
         });
 
@@ -62,9 +185,14 @@
           window.webOSRelaunch(detail);
         });
 
-        // Signal ready to ActivityManager holders that UI is mounted
+        // Visibility change warm — initial mount
+        if (document.visibilityState === 'visible') {
+          warmLovelace();
+        }
+
+        // Signal ready to ActivityManager holders that UI is mounted (requiredMemory holder)
         if (typeof console !== 'undefined' && console.log) {
-          console.log('[com.ha.tvbridge] Enact placeholder mounted — awaiting ActivityManager warm hold');
+          console.log('[com.ha.tvbridge] Enact placeholder mounted — handlesRelaunch:true requiredMemory:120 — awaiting ActivityManager warm hold');
         }
       }
     }());

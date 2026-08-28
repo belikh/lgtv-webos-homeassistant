@@ -1,20 +1,23 @@
 /* eslint-disable no-console */
 /**
- * com.ha.tvbridge.service — Phase 2+3 companion (JS + ActivityManager + ambient bridge)
+ * com.ha.tvbridge.service — Phase 2+3+4 companion (JS + ActivityManager + ambient + Wyoming)
  *
- * Three-layer hybrid — Phase 3 adds Layer 3 conditional native daemon:
- *   Layer 1 Enact suspended WebView (handlesRelaunch:true, requiredMemory:120) — placeholder (Phase 4)
+ * Three-layer hybrid — Phase 4 adds Layer 1 Enact warm + Wyoming UMI conditional:
+ *   Layer 1 Enact suspended WebView (handlesRelaunch:true, requiredMemory:120) — com.ha.tvbridge/index.html
+ *           Lovelace iframe warm via PalmSystem.activate() + visibilityChange + WS subscribe
  *   Layer 2 JS service anchored by ActivityManager foreground+explicit+persist — THIS FILE
  *   Layer 3 native init.d unicapture daemon (libvtcapture+libhalgal flatbuffer 127.0.0.1:19400
  *           256x144@30 CX quirks 0x1|0x2|0x40|0x100, 32x32 hash → ambient_lux) — native/init.d/com.ha.tvbridge.ambient
  *
  * Responsibilities:
- *   - Register luna://com.ha.tvbridge.service/getCapabilities for sister Phase-1 probe
+ *   - Register luna://com.ha.tvbridge.service/getCapabilities for sister Phase-1 probe (caps voice+lovelace)
  *   - Luna getAmbientLux (unicapture flatbuffer stub, 32x32 hash, AI Picture Pro toast contract)
+ *   - Luna getVoiceStatus / getWyomingStatus + TCP 8091 Wyoming stub 16 kHz PCM via UMI usb_mic0 conditional
  *   - Create/adopt foreground+explicit+persist Activity with FakeActivityManager 30s TTL fallback
- *   - Host WS on wss:9923 with HMAC(client_key,'ha-companion/1') auth and push for power/volume/app/ambient
+ *   - Host WS on wss:9923 with HMAC(client_key,'ha-companion/1') auth and push for power/volume/app/ambient/voice
  *   - Proxy CEC query/operation for HDMI-CEC hub role
  *   - Ambient flatbuffer client 127.0.0.1:19400 → 32x32 hash to ambient_lux, WS type ambient + getAmbientLux, simulated fallback
+ *   - Wyoming UMI probe listSupportedDevices usb_mic0 → TCP 8091 16 kHz PCM stub, Magic Remote fallback if absent
  *
  * Notes:
  *   - wss:9923 is served as plain ws://9923 with CERT_NONE tolerance on HA side (bscpylgtv/aiowebostv
@@ -105,6 +108,42 @@ let ambientTimer = null;
 let ambientFrameCount = 0;
 /** @type {boolean} */
 let ambientToastShown = false;
+
+// ---------------------------------------------------------------------------
+// Wyoming voice satellite — 16 kHz PCM via UMI usb_mic0 conditional (Phase 4)
+// Graceful degrade if USB mic absent — CX has no far-field array-mic, wired USB only.
+// Stub TCP 8091 streaming 16 kHz PCM; real Wyoming binary not required until HA assist.
+// Refs: com.webos.service.audio/listSupportedDevices (usb_mic0), FLATBUFFER_PROTOCOL,
+//       ROADMAP §10 voice satellite, docs/ENACT_VOICE.md
+// ---------------------------------------------------------------------------
+
+/** @const {string} */
+const WYOMING_HOST = '0.0.0.0';
+/** @const {number} */
+const WYOMING_PORT = 8091;
+/** @const {number} */
+const WYOMING_RATE = 16000;
+/** @const {number} */
+const WYOMING_CHANNELS = 1;
+/** @const {number} */
+const WYOMING_WIDTH = 2; // 16-bit LE
+/** @const {number} */
+const WYOMING_CHUNK_MS = 20; // 20 ms per chunk → 640 bytes (16000 *2 *0.02)
+/** @const {string} */
+const WYOMING_FALLBACK_NOTE = 'Magic Remote push-to-talk fallback — CX no far-field array-mic; wired USB mic required for always-on Wyoming';
+
+/** @type {boolean} */
+let wyomingAvailable = false;
+/** @type {'usb_mic0' | 'unavailable' | 'fallback'} */
+let wyomingSource = 'unavailable';
+/** @type {any} */
+let wyomingServer = null;
+/** @type {NodeJS.Timeout | null} */
+let wyomingProbeTimer = null;
+/** @type {Array<any>} */
+let wyomingDeviceList = [];
+/** @type {number} */
+let wyomingProbeAttempts = 0;
 
 // ---------------------------------------------------------------------------
 // HMAC helper — re-uses HA client-key, no second credential store
@@ -419,6 +458,288 @@ function stopAmbientLoop() {
 }
 
 // ---------------------------------------------------------------------------
+// Wyoming — UMI usb_mic0 probe + Wyoming TCP 8091 stub (Phase 4)
+// Graceful degrade: CX no far-field, wired USB mic only. No binary required.
+// ---------------------------------------------------------------------------
+
+/**
+ * Test if deviceList contains a connected usb_mic0 (wired USB mic).
+ * Mirrors com.webos.service.audio/listSupportedDevices response deviceList[].
+ * Also tolerates status/getStatus UMI shape where audio[] contains source AMIXER.
+ * @param {Array<any> | undefined} deviceList
+ * @returns {boolean}
+ */
+function isUsbMicPresent(deviceList) {
+  if (!Array.isArray(deviceList)) return false;
+  return deviceList.some(function (d) {
+    if (!d || typeof d.deviceName !== 'string') return false;
+    // Exact: usb_mic0 external input connected
+    if (d.deviceName === 'usb_mic0') {
+      // connected:true is the CX ground truth; treat absent connected as false
+      return d.connected === true;
+    }
+    return false;
+  });
+}
+
+/**
+ * Current voice snapshot for Luna/WS getCapabilities.
+ * @returns {{available:boolean,source:string,port:number,rate:number,channels:number,fallback:string,deviceList:Array<any>,attempts:number}}
+ */
+function getWyomingSnapshot() {
+  return {
+    available: wyomingAvailable,
+    source: wyomingSource,
+    port: WYOMING_PORT,
+    rate: WYOMING_RATE,
+    channels: WYOMING_CHANNELS,
+    fallback: WYOMING_FALLBACK_NOTE,
+    deviceList: wyomingDeviceList.slice(0, 8),
+    attempts: wyomingProbeAttempts,
+  };
+}
+
+/**
+ * Probe UMI audio hardware for usb_mic0 via listSupportedDevices.
+ * Tries Luna luna://com.webos.service.audio/listSupportedDevices {query:'all'}.
+ * Falls back to luna://com.webos.service.audio/UMI/getStatus and
+ * luna://com.webos.service.audio/status/getStatus for older firmware alias.
+ * Updates wyomingAvailable / wyomingSource and starts or stops TCP stub accordingly.
+ * @param {(found:boolean)=>void} [cb]
+ */
+function probeWyomingOnce(cb) {
+  wyomingProbeAttempts++;
+  if (!service) {
+    // Stub mode (typecheck) — remain unavailable, still report fallback
+    wyomingAvailable = false;
+    wyomingSource = 'unavailable';
+    wyomingDeviceList = [];
+    if (typeof cb === 'function') cb(false);
+    return;
+  }
+  var handled = false;
+  /**
+   * @param {boolean} found
+   * @param {Array<any>} list
+   */
+  var done = function (found, list) {
+    if (handled) return;
+    handled = true;
+    wyomingDeviceList = Array.isArray(list) ? list : [];
+    wyomingAvailable = !!found;
+    wyomingSource = found ? 'usb_mic0' : 'unavailable';
+    if (found) {
+      console.log('[com.ha.tvbridge.service] Wyoming probe — usb_mic0 present, starting TCP ' + WYOMING_PORT);
+      startWyomingServer();
+    } else {
+      console.log('[com.ha.tvbridge.service] Wyoming probe — usb_mic0 absent (' + WYOMING_FALLBACK_NOTE + ')');
+      stopWyomingServer();
+    }
+    if (typeof cb === 'function') cb(found);
+  };
+
+  // Primary: listSupportedDevices — ACG audio.query, reliable on 5.4.1 OSE
+  try {
+    service.call('luna://com.webos.service.audio/listSupportedDevices', { query: 'all', subscribe: false }, /** @param {any} msg */ function (msg) {
+      var payload = msg && msg.payload ? msg.payload : {};
+      if (payload.returnValue === true && Array.isArray(payload.deviceList)) {
+        done(isUsbMicPresent(payload.deviceList), payload.deviceList);
+      } else if (payload.returnValue === false) {
+        // Try UMI/getStatus alias
+        tryFallbackUmi();
+      } else {
+        // No deviceList — fall through to UMI check after short timeout
+        setTimeout(tryFallbackUmi, 200);
+      }
+    });
+  } catch (_e) {
+    tryFallbackUmi();
+  }
+
+  function tryFallbackUmi() {
+    if (handled) return;
+    // Fallback 1: UMI/getStatus (audio UMI routing)
+    try {
+      service.call('luna://com.webos.service.audio/UMI/getStatus', {}, /** @param {any} msg2 */ function (msg2) {
+        var p2 = msg2 && msg2.payload ? msg2.payload : {};
+        // UMI/getStatus does not list usb_mic0 directly; treat as absent and keep probing listSupportedDevices shape
+        // But if it returns audio[] we still mark unavailable gracefully
+        if (p2.returnValue === true) {
+          // UMI alive but no mic evidence — still absent
+          done(false, p2.audio || []);
+        } else {
+          tryFallbackStatus();
+        }
+      });
+    } catch (_e2) {
+      tryFallbackStatus();
+    }
+  }
+
+  function tryFallbackStatus() {
+    if (handled) return;
+    // Fallback 2: status/getStatus alias (some firmware maps audio/status/getStatus → UMI)
+    try {
+      service.call('luna://com.webos.service.audio/status/getStatus', {}, /** @param {any} msg3 */ function (msg3) {
+        var p3 = msg3 && msg3.payload ? msg3.payload : {};
+        if (p3.returnValue === true && Array.isArray(p3.deviceList)) {
+          done(isUsbMicPresent(p3.deviceList), p3.deviceList);
+        } else {
+          done(false, []);
+        }
+      });
+    } catch (_e3) {
+      done(false, []);
+    }
+  }
+
+  // Safety timeout — if no Luna reply in 1500 ms, degrade gracefully
+  setTimeout(function () {
+    if (!handled) {
+      console.warn('[com.ha.tvbridge.service] Wyoming probe timeout — assuming usb_mic0 absent');
+      done(false, []);
+    }
+  }, 1500);
+}
+
+/**
+ * Start Wyoming TCP 8091 stub streaming 16 kHz PCM.
+ * Stub only — does not require native Wyoming binary.
+ * When HA Wyoming satellite connects, we stream 20 ms silence chunks (640 bytes)
+ * at 16 kHz mono 16-bit LE; a real UMI capture would replace silence with arecord/UMI.
+ * Safe to call multiple times; de-duplicates server.
+ */
+function startWyomingServer() {
+  if (wyomingServer) return;
+  var net;
+  try {
+    // eslint-disable-next-line global-require
+    net = require('net');
+  } catch (_e) {
+    console.warn('[com.ha.tvbridge.service] Wyoming stub — net not available');
+    return;
+  }
+  // If no mic, do not expose TCP — graceful degrade requested
+  if (!wyomingAvailable) {
+    console.log('[com.ha.tvbridge.service] Wyoming stub not started — ' + WYOMING_FALLBACK_NOTE);
+    return;
+  }
+  try {
+    wyomingServer = net.createServer(function (socket) {
+      console.log('[com.ha.tvbridge.service] Wyoming client connected ' + (socket.remoteAddress || 'unknown'));
+      // Wyoming protocol handshake stub — send JSON describe then stream PCM
+      // Real Wyoming uses JSON header + PCM; stub sends describe then silence.
+      var describe = JSON.stringify({
+        type: 'describe',
+        data: {
+          wyoming: { version: '1.5.4' },
+          asr: [{ name: 'ha-tvbridge-stub', attribution: { name: 'HA TV Bridge', url: 'https://github.com/belikh/lgtv-webos-homeassistant' }, installed: true, version: '1.0.0', languages: ['en'], supports: ['transcribe'] }],
+          satellite: { name: 'com.ha.tvbridge', area: 'living_room', streaming: true },
+          // Advertise 16 kHz mono PCM
+          audio: { rate: WYOMING_RATE, width: WYOMING_WIDTH, channels: WYOMING_CHANNELS },
+        },
+      });
+      try {
+        // Wyoming framing: 4-byte BE length? For stub we just send JSON + newline for HA to parse
+        socket.write(describe + '\n');
+      } catch (_e) { /* ignore */ }
+
+      // Handle incoming Wyoming events (transcribe, audio chunk) — stub acknowledges
+      socket.on('data', function (d) {
+        var text = d.toString().slice(0, 400);
+        console.log('[com.ha.tvbridge.service] Wyoming recv', text);
+        // Echo back a transcribe stub if client sent run
+        if (text.indexOf('"type": "transcribe"') !== -1 || text.indexOf('"type":"transcribe"') !== -1) {
+          try {
+            socket.write(JSON.stringify({ type: 'transcript', data: { text: '' } }) + '\n');
+          } catch (_e2) { /* ignore */ }
+        }
+      });
+
+      // Stream 16 kHz PCM silence at 20 ms intervals (640 bytes)
+      var chunk = Buffer.alloc(WYOMING_RATE * WYOMING_WIDTH * WYOMING_CHANNELS * WYOMING_CHUNK_MS / 1000, 0);
+      var pcmTimer = setInterval(function () {
+        try {
+          if (socket.destroyed || socket.writableEnded) {
+            clearInterval(pcmTimer);
+            return;
+          }
+          // Only stream if mic still present; otherwise send silence and note fallback
+          socket.write(chunk);
+        } catch (_e) {
+          clearInterval(pcmTimer);
+        }
+      }, WYOMING_CHUNK_MS);
+      // Ensure timer does not keep process alive alone — ActivityManager does
+      if (pcmTimer && typeof pcmTimer.unref === 'function') pcmTimer.unref();
+
+      socket.on('close', function () {
+        clearInterval(pcmTimer);
+        console.log('[com.ha.tvbridge.service] Wyoming client disconnected');
+      });
+      socket.on('error', function (err) {
+        clearInterval(pcmTimer);
+        console.warn('[com.ha.tvbridge.service] Wyoming socket error', err);
+      });
+    });
+
+    wyomingServer.on('error', /** @param {any} err */ function (err) {
+      console.warn('[com.ha.tvbridge.service] Wyoming server error', err);
+      // EADDRINUSE etc. — degrade gracefully, keep voice available:false
+      try { wyomingServer.close(); } catch (_e) { /* ignore */ }
+      wyomingServer = null;
+      wyomingAvailable = false;
+      wyomingSource = 'fallback';
+    });
+
+    wyomingServer.listen(WYOMING_PORT, WYOMING_HOST, function () {
+      console.log('[com.ha.tvbridge.service] Wyoming stub listening on ' + WYOMING_HOST + ':' + WYOMING_PORT + ' ' + WYOMING_RATE + 'Hz PCM (usb_mic0)');
+    });
+  } catch (/** @type {any} */ err) {
+    console.warn('[com.ha.tvbridge.service] Failed to start Wyoming stub', err);
+    wyomingServer = null;
+  }
+}
+
+/**
+ * Stop Wyoming TCP stub.
+ */
+function stopWyomingServer() {
+  if (wyomingServer) {
+    try {
+      wyomingServer.close();
+    } catch (_e) { /* ignore */ }
+    wyomingServer = null;
+    console.log('[com.ha.tvbridge.service] Wyoming stub stopped — ' + WYOMING_FALLBACK_NOTE);
+  }
+}
+
+/**
+ * Start periodic Wyoming probe (boot + every 30 s) so hot-plugged USB mic is detected.
+ * Safe to call multiple times; de-duplicates timer.
+ */
+function startWyomingProbeLoop() {
+  if (wyomingProbeTimer) return;
+  console.log('[com.ha.tvbridge.service] Wyoming probe loop start — listSupportedDevices usb_mic0 conditional');
+  probeWyomingOnce();
+  wyomingProbeTimer = setInterval(function () {
+    probeWyomingOnce();
+  }, 30000);
+  if (wyomingProbeTimer && typeof wyomingProbeTimer.unref === 'function') wyomingProbeTimer.unref();
+}
+
+/**
+ * Stop Wyoming probe loop.
+ */
+function stopWyomingProbeLoop() {
+  if (wyomingProbeTimer) {
+    clearInterval(wyomingProbeTimer);
+    wyomingProbeTimer = null;
+  }
+  console.log('[com.ha.tvbridge.service] Wyoming probe loop stopped');
+}
+
+// ---------------------------------------------------------------------------
 // Service bootstrap
 // ---------------------------------------------------------------------------
 
@@ -604,6 +925,8 @@ if (service) {
   // @ts-ignore
   service.register('getCapabilities', (message) => {
     console.log('[com.ha.tvbridge.service] getCapabilities called');
+    // Wyoming probe — ensure we have at least one probe attempt for fresh caps
+    // Do not block response; probe is async and caps voice stays advertised regardless.
     message.respond({
       returnValue: true,
       v: CAPS_SNAPSHOT.v,
@@ -621,7 +944,50 @@ if (service) {
         lastLux: lastAmbientLux,
         meta: { width: AMBIENT_WIDTH, height: AMBIENT_HEIGHT, fps: AMBIENT_FPS, quirks: AMBIENT_QUIRKS, hash: '32x32', host: AMBIENT_HOST, port: AMBIENT_PORT },
       } : { available: false, source: 'unavailable', lastLux: null },
+      // Phase 4 voice lift — sister checks caps includes voice but must also inspect voice.available
+      // Graceful degrade when usb_mic0 absent: available false + fallback note (Magic Remote push-to-talk)
+      voice: wyomingAvailable ? {
+        available: true,
+        source: wyomingSource,
+        port: WYOMING_PORT,
+        rate: WYOMING_RATE,
+        channels: WYOMING_CHANNELS,
+        width: WYOMING_WIDTH,
+        fallback: WYOMING_FALLBACK_NOTE,
+      } : {
+        available: false,
+        source: 'unavailable',
+        port: WYOMING_PORT,
+        rate: WYOMING_RATE,
+        channels: WYOMING_CHANNELS,
+        width: WYOMING_WIDTH,
+        fallback: WYOMING_FALLBACK_NOTE,
+      },
     });
+  });
+
+  // getVoiceStatus — Wyoming satellite status, UMI usb_mic0 conditional
+  // Gracefully degrades: CX no far-field array-mic, wired USB only
+  // @ts-ignore
+  service.register('getVoiceStatus', (message) => {
+    console.log('[com.ha.tvbridge.service] getVoiceStatus called');
+    var snap = getWyomingSnapshot();
+    // Trigger background re-probe for next call without blocking response
+    probeWyomingOnce();
+    if (snap.available) {
+      message.respond({ returnValue: true, available: true, source: snap.source, port: snap.port, rate: snap.rate, channels: snap.channels, fallback: snap.fallback, deviceList: snap.deviceList });
+    } else {
+      message.respond({ returnValue: true, available: false, source: 'unavailable', port: snap.port, rate: snap.rate, channels: snap.channels, fallback: snap.fallback, deviceList: snap.deviceList });
+    }
+  });
+
+  // getWyomingStatus — alias for HA Wyoming discovery (same as getVoiceStatus)
+  // @ts-ignore
+  service.register('getWyomingStatus', (message) => {
+    console.log('[com.ha.tvbridge.service] getWyomingStatus called');
+    var snap2 = getWyomingSnapshot();
+    probeWyomingOnce();
+    message.respond({ returnValue: true, available: snap2.available, source: snap2.source, port: snap2.port, rate: snap2.rate, channels: snap2.channels, fallback: snap2.fallback });
   });
 
   // getAmbientLux — unicapture flatbuffer 127.0.0.1:19400 hashed to 32x32 ambient_lux
@@ -826,7 +1192,7 @@ function startWsServer() {
           try { msg = JSON.parse(text); } catch (_e) { msg = { raw: text }; }
           console.log('[com.ha.tvbridge.service] WS recv', text.slice(0, 200));
 
-          // Minimal command handling — ping/pong, cec proxy via WS, and ambient getAmbientLux
+          // Minimal command handling — ping/pong, cec proxy via WS, ambient/voice
           if (msg && msg.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
           } else if (msg && (msg.type === 'getAmbientLux' || msg.type === 'ambientLux')) {
@@ -841,6 +1207,11 @@ function startWsServer() {
           } else if (msg && msg.type === 'ambient' && msg.payload && typeof msg.payload.lux === 'number') {
             // Allow HA to inject ambient for testing (inject-websession echo) — rebroadcast
             broadcast('ambient', msg.payload);
+          } else if (msg && (msg.type === 'getVoiceStatus' || msg.type === 'getWyomingStatus' || msg.type === 'voiceStatus')) {
+            var vSnap = getWyomingSnapshot();
+            probeWyomingOnce();
+            ws.send(JSON.stringify({ type: 'voice', payload: vSnap, ts: Date.now() }));
+            ws.send(JSON.stringify({ type: 'getVoiceStatusResult', payload: vSnap, ts: Date.now() }));
           } else if (msg && msg.type === 'cecQuery' && service) {
             const target = msg.method || 'luna://com.webos.service.cec/getDeviceList';
             const params = msg.params || {};
@@ -889,6 +1260,8 @@ function subscribeAll() {
     console.log('[com.ha.tvbridge.service] No service — subscriptions stubbed (ambient still simulated)');
     // Even in stub mode, start ambient loop so typecheck/demo still shows ambient_lux
     try { startAmbientLoop(); } catch (_e) { /* ignore */ }
+    // Wyoming probe stub also works in degraded mode (reports unavailable)
+    try { startWyomingProbeLoop(); } catch (_e) { /* ignore */ }
     return;
   }
   subscribePower();
@@ -897,6 +1270,8 @@ function subscribeAll() {
   // Phase 3 ambient — unicapture flatbuffer client stub 127.0.0.1:19400 → 32x32 hash
   // Gracefully degrades to simulated when native daemon absent; never throws.
   try { startAmbientLoop(); } catch (_e) { /* ignore */ }
+  // Phase 4 Wyoming voice — UMI usb_mic0 conditional, graceful fallback to Magic Remote
+  try { startWyomingProbeLoop(); } catch (_e) { /* ignore */ }
 }
 
 function subscribePower() {
@@ -959,7 +1334,7 @@ function subscribeApp() {
 // ---------------------------------------------------------------------------
 
 function boot() {
-  console.log('[com.ha.tvbridge.service] boot — ' + SERVICE_ID + ' v1.0.0 model ' + CAPS_SNAPSHOT.model + ' sv ' + CAPS_SNAPSHOT.sv + ' ambient ' + AMBIENT_HOST + ':' + AMBIENT_PORT + ' ' + AMBIENT_WIDTH + 'x' + AMBIENT_HEIGHT + '@' + AMBIENT_FPS + ' quirks 0x' + AMBIENT_QUIRKS.toString(16));
+  console.log('[com.ha.tvbridge.service] boot — ' + SERVICE_ID + ' v1.0.0 model ' + CAPS_SNAPSHOT.model + ' sv ' + CAPS_SNAPSHOT.sv + ' ambient ' + AMBIENT_HOST + ':' + AMBIENT_PORT + ' ' + AMBIENT_WIDTH + 'x' + AMBIENT_HEIGHT + '@' + AMBIENT_FPS + ' quirks 0x' + AMBIENT_QUIRKS.toString(16) + ' voice Wyoming ' + WYOMING_HOST + ':' + WYOMING_PORT + ' ' + WYOMING_RATE + 'Hz usb_mic0 conditional');
   ensureActivity(() => {
     startWsServer();
     // Defer subscriptions slightly to let Activity settle
@@ -1003,4 +1378,18 @@ module.exports = {
   startAmbientLoop,
   stopAmbientLoop,
   maybeNotifyAiPictureContract,
+  // Phase 4 Wyoming voice satellite — 16 kHz PCM via UMI usb_mic0 conditional
+  WYOMING_HOST,
+  WYOMING_PORT,
+  WYOMING_RATE,
+  WYOMING_CHANNELS,
+  WYOMING_WIDTH,
+  WYOMING_FALLBACK_NOTE,
+  isUsbMicPresent,
+  getWyomingSnapshot,
+  probeWyomingOnce,
+  startWyomingServer,
+  stopWyomingServer,
+  startWyomingProbeLoop,
+  stopWyomingProbeLoop,
 };
