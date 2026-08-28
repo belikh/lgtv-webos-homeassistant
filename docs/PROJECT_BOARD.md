@@ -1,6 +1,6 @@
 # Projects board — https://github.com/users/belikh/projects/1
 
-**Platinum Native Companion — 5-Phase Edge-Node Ladder** — 17 items (14 issues + 3 drafts), 6 milestones Phase 0–5, custom fields Phase / ACL Tier / Effort / Priority. Visibility: **Public**. Short description 248 chars. Readme synced from this file via `gh project edit 1 --visibility PUBLIC --readme "$(cat docs/PROJECT_BOARD.md)"`.
+**Platinum Native Companion — 5-Phase Edge-Node Ladder** — 17 items (14 issues + 3 drafts), 6 milestones Phase 0–5, custom fields Phase / ACL Tier / Effort / Priority / Start date / Target date / Iteration. Visibility: **Public**. Short description 248 chars. Readme synced from this file via `gh project edit 1 --visibility PUBLIC --readme "$(cat docs/PROJECT_BOARD.md)"`.
 
 ## Milestones → Phases (§11)
 
@@ -24,28 +24,30 @@ All 17 items now populated via `gh project item-edit` with field IDs:
 - `PVTSSF_lAHOAEOuI84BhtGTzhgn3rk` **Effort** S `ae78e8e9`, M `70b1f4ae`, L `bb6bef33`, XL `efc34914`
 - `PVTSSF_lAHOAEOuI84BhtGTzhgn3ro` **Priority** P0 — Must `799518e7`, P1 — Should `c9ff30b0`, P2 — Could `17227a7f`
 - `PVTSSF_lAHOAEOuI84BhtGTzhgn3mA` **Status** Todo `f75ad846`, In Progress `47fc9ee4`, Done `98236657`
+- `PVTF_lAHOAEOuI84BhtGTzhgn9hQ` **Start date** (`DATE`) + `PVTF_lAHOAEOuI84BhtGTzhgn9ho` **Target date** (`DATE`) — Roadmap temporal axis, one pair per phase
+- `PVTIF_lAHOAEOuI84BhtGTzhgn9sc` **Iteration** (`ITERATION`, 6 iterations: `72a3ba20` 0 2026-09-01×14, `22177f7e` 1 2026-09-15×14, `8dd8aac5` 2 2026-09-29×14, `4215abe1` 3 2026-10-13×14, `33d314cc` 4 2026-10-27×14, `12e7167c` 5 2026-11-10×21) — satisfies `Roadmap: group needs at least one date or iteration field`
 
-### Field value map (17 items)
+### Field value map (17 items) — now includes date + iteration
 
-| Item | Phase | ACL Tier | Effort | Priority | Status |
-|---|---|---|---|---|---|
-| #4 ADR-001 | 0 — Ground truth | C root-only | M | P0 — Must | Done |
-| #5 ADR-002 | 0 — Ground truth | B requiredPermissions | M | P0 — Must | Done |
-| #6 research handoff | 0 — Ground truth | A stock | S | P0 — Must | Done |
-| #7 cascade SSDP→WS | 1 — Detect+Install (HA) | C root-only | M | P0 — Must | In Progress |
-| #8 HB/dev-install | 1 — Detect+Install (HA) | C root-only | L | P0 — Must | In Progress |
-| #9 sister second-mode | 1 — Detect+Install (HA) | B requiredPermissions | L | P0 — Must | In Progress |
-| #10 JS+ActivityManager | 2 — JS+ActivityManager | B requiredPermissions | M | P0 — Must | Todo |
-| #11 CEC hub | 2 — JS+ActivityManager | C root-only | M | P1 — Should | Todo |
-| #12 unicapture native | 3 — Ambient flagship | C root-only | XL | P0 — Must | Todo |
-| #13 camera ambient_lux | 3 — Ambient flagship | C root-only | L | P0 — Must | Todo |
-| #14 Enact dashboard | 4 — Enact+Voice | B requiredPermissions | L | P1 — Should | Todo |
-| #15 Wyoming voice | 4 — Enact+Voice | C root-only | XL | P2 — Could | Todo |
-| #16 hassfest Platinum | 5 — Platinum | A stock | L | P0 — Must | Todo |
-| #17 Homebrew publish | 5 — Platinum | C root-only | M | P0 — Must | Todo |
-| Draft Docs ROADMAP | 0 — Ground truth | A stock | S | P0 — Must | Done |
-| Draft ADR-003 transport | 2 — JS+ActivityManager | A stock | M | P1 — Should | Todo |
-| Draft ADR-004 one-OTA | 5 — Platinum | C root-only | S | P0 — Must | Todo |
+| Item | Phase | ACL Tier | Effort | Priority | Status | Start date | Target date | Iteration |
+|---|---|---|---|---|---|---|---|---|
+| #4 ADR-001 | 0 — Ground truth | C root-only | M | P0 — Must | Done | 2026-09-01 | 2026-09-15 | Phase 0 — Ground truth `72a3ba20` |
+| #5 ADR-002 | 0 — Ground truth | B requiredPermissions | M | P0 — Must | Done | 2026-09-01 | 2026-09-15 | Phase 0 — Ground truth `72a3ba20` |
+| #6 research handoff | 0 — Ground truth | A stock | S | P0 — Must | Done | 2026-09-01 | 2026-09-15 | Phase 0 — Ground truth `72a3ba20` |
+| #7 cascade SSDP→WS | 1 — Detect+Install (HA) | C root-only | M | P0 — Must | In Progress | 2026-09-15 | 2026-09-29 | Phase 1 — Detect+Install `22177f7e` |
+| #8 HB/dev-install | 1 — Detect+Install (HA) | C root-only | L | P0 — Must | In Progress | 2026-09-15 | 2026-09-29 | Phase 1 — Detect+Install `22177f7e` |
+| #9 sister second-mode | 1 — Detect+Install (HA) | B requiredPermissions | L | P0 — Must | In Progress | 2026-09-15 | 2026-09-29 | Phase 1 — Detect+Install `22177f7e` |
+| #10 JS+ActivityManager | 2 — JS+ActivityManager | B requiredPermissions | M | P0 — Must | Todo | 2026-09-29 | 2026-10-13 | Phase 2 — JS service `8dd8aac5` |
+| #11 CEC hub | 2 — JS+ActivityManager | C root-only | M | P1 — Should | Todo | 2026-09-29 | 2026-10-13 | Phase 2 — JS service `8dd8aac5` |
+| #12 unicapture native | 3 — Ambient flagship | C root-only | XL | P0 — Must | Todo | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` |
+| #13 camera ambient_lux | 3 — Ambient flagship | C root-only | L | P0 — Must | Todo | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` |
+| #14 Enact dashboard | 4 — Enact+Voice | B requiredPermissions | L | P1 — Should | Todo | 2026-10-27 | 2026-11-10 | Phase 4 — Enact+Voice `33d314cc` |
+| #15 Wyoming voice | 4 — Enact+Voice | C root-only | XL | P2 — Could | Todo | 2026-10-27 | 2026-11-10 | Phase 4 — Enact+Voice `33d314cc` |
+| #16 hassfest Platinum | 5 — Platinum | A stock | L | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` |
+| #17 Homebrew publish | 5 — Platinum | C root-only | M | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` |
+| Draft Docs ROADMAP | 0 — Ground truth | A stock | S | P0 — Must | Done | 2026-09-01 | 2026-09-15 | Phase 0 — Ground truth `72a3ba20` |
+| Draft ADR-003 transport | 2 — JS+ActivityManager | A stock | M | P1 — Should | Todo | 2026-09-29 | 2026-10-13 | Phase 2 — JS service `8dd8aac5` |
+| Draft ADR-004 one-OTA | 5 — Platinum | C root-only | S | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` |
 
 Milestone field `PVTF_lAHOAEOuI84BhtGTzhgn3mM` mirrors GitHub issue milestone; Linked pull requests `PVTF_lAHOAEOuI84BhtGTzhgn3mI` auto-populates on PR.
 
@@ -56,16 +58,27 @@ Milestone field `PVTF_lAHOAEOuI84BhtGTzhgn3mM` mirrors GitHub issue milestone; L
 | View 1 | TABLE_LAYOUT | — | PVTV_lAHOAEOuI84BhtGTzgLdNAo |
 | Board — Status | BOARD_LAYOUT | **Status** Todo / In Progress / Done | PVTV_lAHOAEOuI84BhtGTzgLdNfM |
 | Board — Phase 0–5 | BOARD_LAYOUT | **Phase** 0–5 lanes | PVTV_lAHOAEOuI84BhtGTzgLdNfg |
-| Roadmap — Milestone | ROADMAP_LAYOUT | Milestone timeline | PVTV_lAHOAEOuI84BhtGTzgLdNfQ |
+| Roadmap — Milestone | ROADMAP_LAYOUT | **Iteration** + **Start/Target date** timeline — satisfies `group needs at least one date or iteration field` | PVTV_lAHOAEOuI84BhtGTzgLdNfQ |
 
-Created via GraphQL `createProjectV2View` with `BOARD_LAYOUT` and `ROADMAP_LAYOUT`. Group-by configuration is not exposed in public GraphQL `updateProjectV2View` (`configuration` only exposes `visibleFieldIds`); boards therefore default to Status grouping and require manual UI configuration for Phase grouping:
+Created via GraphQL `createProjectV2View` with `BOARD_LAYOUT` and `ROADMAP_LAYOUT`. Group-by configuration is not exposed in public GraphQL `updateProjectV2View` (`configuration` only exposes `visibleFieldIds`); boards therefore default to Status grouping and require manual UI configuration for Phase grouping. Roadmap previously failed `group needs at least one date or iteration field` — resolved 2026-08-28 by adding `Start date`/`Target date` + 6-phase `Iteration`.
 
 **Manual steps if grouping not auto-applied:**
 1. Open https://github.com/users/belikh/projects/1 → `Board — Status` → `...` → `Group by` → `Status` (Todo/In Progress/Done).
-2. `Board — Phase 0–5` → `Group by` → `Phase` (0–5 lanes).
-3. `Roadmap — Milestone` → `Group by` → `Milestone` or set `Date field` to `Milestone` iteration if roadmap dates required.
+2. `Board — Phase 0–5` → `Group by` → `Phase` (0–5 lanes) or `Iteration`.
+3. `Roadmap — Milestone` → `Group by` → `Iteration` (Phase 0–5 swimlanes) or set `Date field` to `Start date`/`Target date`; choose `Iteration` to see 6 sprints `2026-09-01 → 2026-12-01`.
 
 TABLE_LAYOUT remains augmented as default view.
+
+### Timeline (Roadmap dates)
+
+| Phase | Iteration | Start | Target | Duration |
+|---|---|---|---|---|
+| 0 | Phase 0 — Ground truth | 2026-09-01 | 2026-09-15 | 14d |
+| 1 | Phase 1 — Detect+Install | 2026-09-15 | 2026-09-29 | 14d |
+| 2 | Phase 2 — JS service | 2026-09-29 | 2026-10-13 | 14d |
+| 3 | Phase 3 — Ambient | 2026-10-13 | 2026-10-27 | 14d |
+| 4 | Phase 4 — Enact+Voice | 2026-10-27 | 2026-11-10 | 14d |
+| 5 | Phase 5 — Platinum | 2026-11-10 | 2026-12-01 | 21d |
 
 ### Branch protection
 
