@@ -1,0 +1,1 @@
+{"findings": [{"id":"D1","severity":"low","location":"## 4. Native App Architecture","issue":"Enact vs vanilla tradeoff could be more explicit on memoryd PSS cost","proposed_edit":"Add memory budget table","status":"acknowledged"}]}

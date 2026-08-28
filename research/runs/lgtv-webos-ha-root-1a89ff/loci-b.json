@@ -1,0 +1,184 @@
+{
+  "analyst_id": "b",
+  "loci": [
+    {
+      "name": "ws-401-vs-luna-all-per-method-unlock-audit",
+      "flavor": "dialectical",
+      "one_line": "Which Luna APIs flip from 401 over WS SSAP to success as root on webOS 5.4.1 04.40.16, and which remain blocked even with requiredPermissions — the per-method stock-vs-rooted table that justifies every new HA entity?",
+      "rationale": "Live fingerprint is the strongest evidence in the corpus: probe on 10.1.1.209 returned 401 for com.webos.applicationManager/getForegroundAppInfo over WS SSAP while luna-send -n 1 as root succeeded (cluster ws-401-vs-luna-privilege). Security Guide (security-guide-webos-open-source-edition) explains ACG + TrustLevel dev/part/oem and that requiredPermissions in appinfo.json generates client-permissions/roles, while Luna service bus note (luna-service-bus-webos-homebrew-project) confirms luna-send as root has the 'all' pseudo-role versus luna-send-pub restricted to public, with roles stored in /var/luna-service2 versus /var/luna-service2-dev. LS2 API Index (ls2-api-index-webos-open-source-edition) lists 30+ services but gives no stock/root matrix; piccap (github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git) and hyperion-webos (github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github) prove tv.capture/scaler private capture via libvt/libhalgal needs elevate-service. Width corpus gestures at the model but never enumerates the differential for HA-relevant methods: com.webos.service.tv.* (getChannelList, getCurrentChannel, getSystemSettings), com.webos.service.config, com.webos.service.audio UMI routing (comwebosserviceaudio-webos-open-source-edition), com.webos.service.cec, com.webos.service.capture/executeOneShot, com.webos.service.power2, com.palm.activitymanager. Depth must run ls-monitor -i per service and inspect api.json/groups.json on the live TV, then build the audit table that section 1 and the bidirectional matrix depend on.",
+      "corpus_evidence": [
+        "security-guide-webos-open-source-edition",
+        "luna-service-bus-webos-homebrew-project",
+        "ls2-api-index-webos-open-source-edition",
+        "github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git",
+        "github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github",
+        "comwebosserviceaudio-webos-open-source-edition"
+      ],
+      "opposing_positions": [
+        {
+          "position": "Root via luna-send as root essentially bypasses LS2 ACLs — most TV-private methods returning 401 over WS become available as root, so audit should treat rooted as unlocking essentially all com.webos.service.tv.* plus capture/audio/cec (proven by hyperion-webos native libvt capture and piccap elevate-service pattern).",
+          "sources": ["luna-service-bus-webos-homebrew-project", "github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git", "github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github"]
+        },
+        {
+          "position": "Injecting requiredPermissions in appinfo.json can unlock a disciplined subset without root — appinstaller generates LS2 client permissions/roles, so stock vs rooted is ACG-dependent not binary; some endpoints become 200 over WS if companion declares correct ACG, and only truly private/oem methods need root.",
+          "sources": ["security-guide-webos-open-source-edition", "using-ls2-api-in-web-apps-webos-open-source-edition", "cli-developer-guide-webos-tv-developer"]
+        }
+      ],
+      "suggested_starting_urls": [
+        "https://www.webosbrew.org/pages/luna-service-bus.html",
+        "https://www.webosose.org/docs/guides/development/configuration-files/security-guide/",
+        "https://github.com/TBSniller/piccap/blob/main/servicefiles/org.webosbrew.piccap.service.api.json",
+        "https://github.com/webosbrew/hyperion-webos#backends-and-quirks",
+        "https://webostv.developer.lge.com/develop/references/luna-service-api-introduction"
+      ],
+      "suggested_searches": [
+        "webOS 5.0 04.40.16 Luna Service Bus ACG TrustLevel requiredPermissions stock vs root per method 401",
+        "ls-monitor -i com.webos.service.tv api.json groups.json all vs private vs tv.services webOS TV",
+        "luna-send root bypass all role vs luna-send-pub public only webosbrew rooted capture cec"
+      ]
+    },
+    {
+      "name": "ws-peer-vs-mqtt-brokered-hybrid-discovery",
+      "flavor": "dialectical",
+      "one_line": "Persistent WebSocket re-using bscpylgtv ws:3000 coordinator versus MQTT discovery with retain/birth/will — or hybrid negotiated via mDNS/SSDP — for HA companion local_push, and how client-key reuse + TLS is actually implemented?",
+      "rationale": "Contradiction cluster ws-vs-mqtt-transport is high relevance and genuinely unresolved: bscpylgtv webos_client.py (bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github, 2112 lines, StorageSqliteDict .aiopylgtv.sqlite client_key, is_registered/register_state_update_callback) and aiowebostv (github-home-assistant-libsaiowebostv-python-library-to-control-lg-webos-based-tv) use ws:3000/3001 subscriptions and power/volume/app discovery reused in HA core webostv coordinator (corehomeassistantcomponentswebostv__init__py-at-dev-home-assistantcore-github local_push with async_handle_update). MQTT note (mqtt-home-assistant) shows HA-native discovery, availability topics, birth/last-will and auto entity creation that WebSocket lacks. SSDP (simple-service-discovery-protocol-ssdp-home-assistant urn:lge-com:service:webos-second-screen:1) and zeroconf (zero-configuration-networking-zeroconf-home-assistant mDNS) define discovery ownership, while Security Guide plus bscpylgtv sqlite shows client-key pairing can be reused. Corpus never resolves LAN TLS (wss port 3001 with self-signed), token rotation lifecycle, minimal requiredPermissions set for companion, reconnect semantics (HA coordinator vs MQTT broker), capability negotiation versioning, or Platinum rules inject-websession + dependency-is-async. Depth must prototype both transports on live 10.1.1.209 and measure retain/reconnect.",
+      "corpus_evidence": [
+        "bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github",
+        "github-home-assistant-libsaiowebostv-python-library-to-control-lg-webos-based-tv",
+        "mqtt-home-assistant",
+        "simple-service-discovery-protocol-ssdp-home-assistant",
+        "zero-configuration-networking-zeroconf-home-assistant",
+        "security-guide-webos-open-source-edition",
+        "corehomeassistantcomponentswebostv__init__py-at-dev-home-assistantcore-github"
+      ],
+      "opposing_positions": [
+        {
+          "position": "Peer WebSocket re-using existing ws:3000 client-key is sufficient — it preserves bscpylgtv/coordinator state-update-callback model, needs no broker, fits local_push, and companion can advertise capabilities over the same channel with mDNS for discovery.",
+          "sources": ["bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github", "github-home-assistant-libsaiowebostv-python-library-to-control-lg-webos-based-tv", "corehomeassistantcomponentswebostv__init__py-at-dev-home-assistantcore-github"]
+        },
+        {
+          "position": "MQTT with HA discovery is the edge-node idiom — broker handles reconnect, retained state, last-will availability, birth messages, and multi-entity fan-out better than bespoke WS, and discovery auto-creates entities without coordinator polling; WS should be fallback only.",
+          "sources": ["mqtt-home-assistant", "zero-configuration-networking-zeroconf-home-assistant"]
+        }
+      ],
+      "suggested_starting_urls": [
+        "https://github.com/chros73/bscpylgtv/blob/master/bscpylgtv/webos_client.py",
+        "https://github.com/home-assistant-libs/aiowebostv",
+        "https://www.home-assistant.io/integrations/mqtt/#discovery",
+        "https://webostv.developer.lge.com/develop/tools/cli-dev-guide",
+        "https://developers.home-assistant.io/docs/api/rest",
+        "https://www.webosbrew.org/pages/luna-service-bus.html"
+      ],
+      "suggested_searches": [
+        "bscpylgtv aiowebostv WebSocket ws 3000 state_update_callback vs MQTT HA discovery retain will",
+        "Home Assistant mDNS SSDP urn lge webos-second-screen companion capability negotiation advertisement",
+        "webOS TV client-key StorageSqliteDict pairing reuse TLS wss 3001 token rotation inject-websession"
+      ]
+    },
+    {
+      "name": "credentialless-root-probe-overlay-ota-survival",
+      "flavor": "convergent",
+      "one_line": "What unauthenticated probe cascade (telnet:23 banner, Dropbear 22, /media/developer overlay, /var/lib/webosbrew/startup.sh + init.d, org.webosbrew.hbchannel.service) reliably detects webosbrew root in HA SSDP config flow and what survives reboot/OTA/failsafe?",
+      "rationale": "Query explicitly mandates auto-detection without credentials before offering consented IPK install on 10.1.1.209 OLED48CXPTA 5.4.1. Notes confirm SSDP (simple-service-discovery-protocol-ssdp-home-assistant) and zeroconf (zero-configuration-networking-zeroconf-home-assistant) ownership for webostv discovery, while Homebrew Channel note (github-webosbrewwebos-homebrew-channel-unofficial-webos-tv-homebrew-store-and-ro) documents unauthenticated telnet:23, Dropbear 22, /media/developer overlay, hbchannel.service luna://org.webosbrew.hbchannel.service/{install,exec,spawn} with SHA256, and startup.sh copied to /var/lib/webosbrew/startup.sh plus /var/lib/webosbrew/init.d startup hooks. Rooting notes (rooting-webos-homebrew, github-rootmytvrootmytvgithubio-rootmytv-is-a-user-friendly-exploit-for-rootingj) show RootMyTV patched mid-2022 and faultmanager/dejavuln-autoroot (github-throwaway96faultmanager-autoroot-exploit-to-root-webos-40-tvs-and-set-up, github-throwaway96dejavuln-autoroot-exploit-to-root-webos-tvs-using-dejavuln-and) as current 4.0+ methods, but CanI.RootMy.TV (canirootmytv) remains the compat oracle. Corpus gives no tested cascade that avoids false positives from devmode (/var/luna-service2-dev), distinguishes present-but-not-rooted hbchannel (exec returns non-root), avoids aggressive port-scan heuristics that breach Platinum diagnostics privacy, or maps signals to test_before_configure + reauth. Also absent: which overlay paths survive firmware OTA and when failsafe telnet emergency shell is exposed (/var/luna/preferences/webosbrew_failsafe). Depth must infer from webosbrew startup.sh source and live probing of nyx/system hardware signals.",
+      "corpus_evidence": [
+        "github-webosbrewwebos-homebrew-channel-unofficial-webos-tv-homebrew-store-and-ro",
+        "luna-service-bus-webos-homebrew-project",
+        "simple-service-discovery-protocol-ssdp-home-assistant",
+        "zero-configuration-networking-zeroconf-home-assistant",
+        "github-throwaway96faultmanager-autoroot-exploit-to-root-webos-40-tvs-and-set-up",
+        "github-throwaway96dejavuln-autoroot-exploit-to-root-webos-tvs-using-dejavuln-and",
+        "rooting-webos-homebrew"
+      ],
+      "suggested_starting_urls": [
+        "https://github.com/webosbrew/webos-homebrew-channel#interfaces",
+        "https://www.webosbrew.org/pages/luna-service-bus.html",
+        "https://github.com/webosbrew/webos-homebrew-channel/blob/main/services/org.webosbrew.hbchannel.service/startup.sh",
+        "https://cani.rootmy.tv",
+        "https://github.com/throwaway96/faultmanager-autoroot"
+      ],
+      "suggested_searches": [
+        "webosbrew root detection unauthenticated telnet 23 Dropbear 22 overlay media/developer probe HA config flow",
+        "org.webosbrew.hbchannel.service exec getAppInfo isRoot credentialless detection startup.sh init.d",
+        "webOS TV nyx hardware_id var Luna preferences webosbrew_failsafe OTA survival failsafe mode probe"
+      ]
+    },
+    {
+      "name": "capture-pipeline-soc-memory-voice-roll",
+      "flavor": "convergent",
+      "one_line": "Under OLED48CX 5.x SoC/memory limits, which edge-node feats — libvt/libhalgal/unicapture HDMI capture with AI Picture Pro conflict, CEC hub, UMI audio/voice satellite, Enact Lovelace dashboard — are feasible and which genuinely require elevated native binary companions?",
+      "rationale": "The 'mind-blowingly useful' roadmap (sub-Q12) hinges on feasibility not wishlist. LS2 API Index (ls2-api-index-webos-open-source-edition) lists com.webos.service.cec, com.webos.service.audio (comwebosserviceaudio-webos-open-source-edition UMI routing, audio.operation ACG), avoutput, pipeline.camera, ai.voice but gives no ACG or stock accessibility; piccap (github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git) and hyperion-webos (github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github) prove HDMI capture demands root native service with unicapture blending vtCapture + halgal + quirks bitmasks and flatbuffer to hyperion/hyperhdr (github-webosbrewhyperhdr-webos-loader-github, github-webosbrewhyperionng-webos-loader-github). ActivityManager (activity-manager-api-reference-guide-webos-tv-developer) and App Lifecycle (app-lifecycle-management-webos-tv-developer) plus JS Service Usage (js-service-usage-webos-tv-developer 5s idle, 'Don't run for minutes due memory') and JS FAQ (javascript-service-faq-webos-tv-developer keepAlive Activity) show memoryd/sam kills headless ambitions. Magic Remote (magic-remote-webos-tv-developer) and notifications (notifications-webos-tv-developer, comwebosnotification-webos-open-source-edition) bound input/overlay UX for dashboard. Corpus has no measured footprint for Enact Lovelace on CX 3GB SoC, no test of CEC injection without root, no STT/TTS via com.webos.service.ai.voice, and no power penalty of persistent capture — an audited absence that depth must fill via gray literature, piccap/hyperion-webos issues, and OpenLGTV Discord practitioner posts tagged with provenance.",
+      "corpus_evidence": [
+        "ls2-api-index-webos-open-source-edition",
+        "comwebosserviceaudio-webos-open-source-edition",
+        "github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git",
+        "github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github",
+        "github-webosbrewhyperhdr-webos-loader-github",
+        "activity-manager-api-reference-guide-webos-tv-developer",
+        "js-service-usage-webos-tv-developer",
+        "magic-remote-webos-tv-developer"
+      ],
+      "suggested_starting_urls": [
+        "https://github.com/TBSniller/piccap#backends-advanced-settings",
+        "https://github.com/webosbrew/hyperion-webos",
+        "https://github.com/webosbrew/hyperhdr-webos-loader",
+        "https://www.webosose.org/docs/reference/ls2-api/com-webos-service-cec/",
+        "https://www.webosose.org/docs/reference/ls2-api/com-webos-service-audio/",
+        "https://webostv.developer.lge.com/develop/references/magic-remote"
+      ],
+      "suggested_searches": [
+        "piccap hyperion-webos unicapture libvt libhalgal quirks AI Picture Pro conflict CX 48 capture pipeline",
+        "webOS TV 5.0 SoC memoryd sam kills Enact Lovelace dashboard memory footprint OLED48CX",
+        "webOS TV CEC audio UMI voice satellite STT TTS com.webos.service.ai.voice com.webos.service.cec root"
+      ]
+    },
+    {
+      "name": "platinum-2026-8-strict-typing-second-mode",
+      "flavor": "convergent",
+      "one_line": "Exact Gold→Platinum gap for ha-lg-webos-tv wrapping bscpylgtv 0.5.3 (sync) to HA 2026.8 — strict-typing/py.typed, async-dependency, inject-websession, runtime_data, diagnostics, translations, reconfigure — and how second-mode capability negotiation adds entities with graceful fallback?",
+      "rationale": "Quality Scale docs (integration-quality-scale-home-assistant-developer-docs, integration-quality-scale-home-assistant-developer-docs-2, integration-quality-scale-rules-home-assistant-developer-docs) define Platinum as Gold plus strict-typing (strict-typing-home-assistant-developer-docs .strict-typing/py.typed mypy), dependency-is-async (dependency-is-async-home-assistant-developer-docs), inject-websession (the-integration-dependency-supports-passing-in-a-websession-home-assistant-devel), all enforced by hassfest quality_scale.py (corescripthassfestquality_scalepy-at-dev-home-assistantcore-github). Sister repo (github-belikhha-lg-webos-tv-vibe-coded-untested-until-later-tonight-github) plus bscpylgtv library (github-chros73bscpylgtv-library-to-control-webos-based-lg-tv-devices-github) and webos_client.py (bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github) show Gold frontier: config flow, SSDP, media_player/remote/notify, picture_settings calibrations, but bscpylgtv exposes blocking websockets and sync StorageSqliteDict — a direct conflict with Platinum async/inject-websession that corpus never resolves. Entity docs (entity-home-assistant-developer-docs, sensor-entity-home-assistant-developer-docs, media-player-entity-home-assistant-developer-docs) require unique_id/has_entity_name/device_info, yet width never maps which native-app-present sensors (foreground app, HDMI-CEC events, ambient lux, cpu/mem/temperature, power_total, capture health) qualify for stale_devices/disabled-by-default. Depth must diff hassfest, propose async wrapper or aiowebostv migration, design second-mode detection flag in coordinator, config/reauth flow, push vs poll, entity registry migration, diagnostics redaction, and the 325-test harness delta for the GitHub issue markdown.",
+      "corpus_evidence": [
+        "integration-quality-scale-home-assistant-developer-docs",
+        "integration-quality-scale-rules-home-assistant-developer-docs",
+        "corescripthassfestquality_scalepy-at-dev-home-assistantcore-github",
+        "strict-typing-home-assistant-developer-docs",
+        "dependency-is-async-home-assistant-developer-docs",
+        "the-integration-dependency-supports-passing-in-a-websession-home-assistant-devel",
+        "github-belikhha-lg-webos-tv-vibe-coded-untested-until-later-tonight-github",
+        "github-chros73bscpylgtv-library-to-control-webos-based-lg-tv-devices-github",
+        "bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github",
+        "entity-home-assistant-developer-docs"
+      ],
+      "suggested_starting_urls": [
+        "https://developers.home-assistant.io/docs/core/integration-quality-scale/",
+        "https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/strict-typing",
+        "https://developers.home-assistant.io/docs/core/integration-quality-scale/rules/inject-websession",
+        "https://github.com/home-assistant/core/blob/dev/script/hassfest/quality_scale.py",
+        "https://github.com/chros73/bscpylgtv/blob/master/bscpylgtv/webos_client.py",
+        "https://github.com/belikh/ha-lg-webos-tv"
+      ],
+      "suggested_searches": [
+        "Home Assistant Quality Scale Platinum 2026 strict-typing inject websession async dependency hassfest",
+        "bscpylgtv 0.5.3 sync vs aiowebostv async migration Home Assistant custom integration platinum",
+        "ha-lg-webos-tv second mode capability negotiation diagnostics translations reconfigure test coverage 325"
+      ]
+    }
+  ],
+  "skip_loci": [
+    {
+      "slug": "enact-vs-vanilla-foreground-needs",
+      "reason": "Contradiction cluster enact-vs-vanilla-js-service is genuine but loci-a already covers it as companion-lifecycle-enact-vs-js-service-vs-systemd-persistence with both sides and 5s ActivityManager keep-alive evidence. B duplicates would waste budget; B instead focuses depth on adjacent SOC/memory + capture pipeline where enact viability is actually decided."
+    },
+    {
+      "slug": "homebrew-install-vs-appinstallservice-ares",
+      "reason": "Cluster homebrew-vs-appinstallservice is high relevance, but loci-a ipk-auto-install-homebrew-elevate-vs-appinstallservice-ares exhaustively cites piccap elevate-service, hbchannel.service install SHA256, and luna dev/install plus ares-setup-device port 9922 vs 22. B folds residual work (overlay wipe risk, version pinning/rollback UX) into credentialless-root-probe-overlay-ota-survival rather than repeating the same fetches."
+    },
+    {
+      "slug": "store-vs-homebrew-distribution",
+      "reason": "Medium-relevance store vs Homebrew distribution is scoped differently — LG Content Store would reject requiredPermissions like 'all' needed for this companion, so for a rooted Platinum app Homebrew Channel is the only viable channel. Not a load-bearing depth question; better as a paragraph in packaging/distribution rather than a locus."
+    },
+    {
+      "slug": "firmware-ota-breaking-root-standalone",
+      "reason": "OTA root survival / failsafe mode is critical adversarially but well-covered as risk thread across faultmanager/dejavuln notes and webosbrew failsafe flag; standalone locus would re-fetch same RootMyTV patched-mid-2022 and webosbrew_failsafe sources already in loci-a. Depth should treat it as verification condition inside ws-401 and probe-overlay loci, not a separate investigation."
+    }
+  ]
+}

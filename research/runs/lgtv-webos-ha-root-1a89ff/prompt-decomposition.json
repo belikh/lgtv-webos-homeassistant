@@ -1,0 +1,117 @@
+{
+  "sub_questions": [
+    "What does rooting an LG webOS TV enable that is impossible on stock webOS (Luna Service Bus ACLs, filesystem, systemd, privileged APIs)?",
+    "What is the complete stock vs rooted capability audit per service/path/method and which new HA entities each unlocks?",
+    "What are all bidirectional Home Assistant <-> LG TV integration possibilities (HA->TV control and TV->HA sensing) with and without the native app?",
+    "How can the HA integration auto-detect root at setup (telnet/luna/overlay/webosbrew signals) without credentials?",
+    "How can the HA integration offer user-consented auto-installation of the companion IPK (Homebrew service vs appInstallService vs ares-install) and handle updates/rollback/version pinning?",
+    "What should the native webOS app architecture be (Enact/React vs vanilla JS service, foreground UI + JS service + systemd companion, lifecycle and keep-alive vs sam/memoryd kills)?",
+    "How should the native app package, sign, and distribute as IPK (ares-cli, appinfo.json/services.json requiredPermissions, Homebrew Channel vs LG store)?",
+    "How should the native app communicate with HA (mDNS/SSDP advertisement, persistent WebSocket/MQTT/REST/SSE, capability negotiation, reconnection)?",
+    "What is the security and pairing model (re-use bscpylgtv client-key, token rotation, TLS on LAN, minimal permissions)?",
+    "What does Home Assistant Quality Scale Platinum require and how does it map to the native app and the sister integration?",
+    "What is the sister integration second-mode design (detection, config/reauth flow, coordinator push vs poll, new entities, fallback when app missing, migration, tests)?",
+    "What is the ultimate, mind-blowingly useful application \u2014 TV as full HA edge node (dashboard renderer, HDMI-CEC hub, camera/ambient via piccap, voice satellite, automation triggers)?",
+    "What is the phased delivery roadmap with clusters, risks, and per-cluster verification?",
+    "What are the adversarial limits (firmware OTA breaking root, background kills, SoC/memory constraints, security surface, store distribution blocked, fragmentation OSE vs TV)?"
+  ],
+  "entities": [
+    {
+      "name": "LG webOS TV rooted (OLED48CXPTA 5.4.1 live fingerprint)",
+      "type": "device",
+      "required_fields": [
+        "model, SoC, Luna ACLs, filesystem overlay, systemd, webosbrew signals"
+      ]
+    },
+    {
+      "name": "Stock webOS TV",
+      "type": "device",
+      "required_fields": [
+        "SSAP over ws:3000, appinfo permissions, sam lifecycle limits"
+      ]
+    },
+    {
+      "name": "Native companion app com.ha.tvbridge",
+      "type": "application",
+      "required_fields": [
+        "foreground UI, JS service, systemd companion, IPK, permissions"
+      ]
+    },
+    {
+      "name": "Sister integration ha_chros73_bscpylgtv (bscpylgtv==0.5.3)",
+      "type": "integration",
+      "required_fields": [
+        "coordinator, config flow, platforms, 325 tests, Gold->Platinum delta"
+      ]
+    },
+    {
+      "name": "Luna Service Bus services",
+      "type": "service",
+      "required_fields": [
+        "com.webos.service.tv.*, com.webos.service.config, apiadapter, tvpower, etc"
+      ]
+    },
+    {
+      "name": "Homebrew Channel / webosbrew",
+      "type": "platform",
+      "required_fields": [
+        "startup.sh, telnet, Dropbear, services under /media/developer"
+      ]
+    },
+    {
+      "name": "HA Quality Scale Platinum",
+      "type": "standard",
+      "required_fields": [
+        "strict-typing, async-dependency, diagnostics, translations, etc"
+      ]
+    },
+    {
+      "name": "Transport options WebSocket/MQTT/REST/SSE/mDNS/SSDP",
+      "type": "protocol",
+      "required_fields": [
+        "reliability, LAN TLS, reconnect, discovery"
+      ]
+    }
+  ],
+  "required_formats": [
+    "root capability audit table (stock vs rooted)",
+    "bidirectional integration matrix (>=30 rows)",
+    "architecture blueprint with file map",
+    "platinum quality map with verify commands",
+    "GitHub issue markdown for sister repo second mode",
+    "phased roadmap with risks"
+  ],
+  "required_sections": [],
+  "required_section_headings": [
+    "## 1. Root vs Stock: What Rooting Actually Unlocks (Live Fingerprint Ground Truth)",
+    "## 2. Bidirectional Integration Matrix \u2014 HA <-> LGTV With and Without the Companion",
+    "## 3. Auto-Detection of Root and User-Consented Auto-Installation of the IPK",
+    "## 4. Native App Architecture \u2014 Enact vs Vanilla JS Service, Lifecycle, and Persistence",
+    "## 5. Packaging, Permissions, and Distribution \u2014 IPK, appinfo.json, Homebrew vs Store",
+    "## 6. Communication and Discovery \u2014 mDNS/SSDP/WebSocket/MQTT and Capability Negotiation",
+    "## 7. Security and Pairing \u2014 client-key Re-use, Token Rotation, and Least Privilege",
+    "## 8. The Ultimate Application \u2014 TV as a Full Home Assistant Edge Node",
+    "## 9. Platinum Quality Plan \u2014 Mapping Every HA Quality Scale Rule",
+    "## 10. Sister Integration Second Mode \u2014 GitHub Issue Blueprint for ha_chros73_bscpylgtv",
+    "## 11. Phased Roadmap, Risks, and Verification",
+    "## 12. Adversarial Limits and What Would Overturn This Direction"
+  ],
+  "time_horizons": [],
+  "time_periods": [],
+  "scope_conditions": [
+    "rooted via webosbrew/Homebrew on consumer TV, not dev-mode only; AU firmware 04.40.16; LAN-local, no cloud dependency"
+  ],
+  "pipeline_tier": "full",
+  "response_format": "argumentative",
+  "citation_style": "wikilink",
+  "levers": {
+    "register": "analyze",
+    "register_confidence": "high",
+    "domain_notes": "Sourcing: academic APIs first then webOS OSE/docs, webosbrew/RootMyTV, LG SDK, HA core webostv and bscpylgtv webos_client.py internals, HA Quality Scale. Strong evidence is live luna-send on 10.1.1.209, published Luna service docs, and the sister repo's 325-test harness. Recency window 24 months for webOS firmware/root methods; HA core 2026.8 matters for platinum rules.",
+    "inference_depth": "deep",
+    "rationale": {
+      "register": "prompt asks to evaluate what root unlocks, compare architectures, and recommend ultimate application \u2014 evaluation-shaped",
+      "inference_depth": "answer lives beyond clear web: Luna ACL internals, rooted filesystem, IPK install flows, TV SoC constraints need inference over absences and gray literature"
+    }
+  }
+}

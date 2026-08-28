@@ -1,0 +1,100 @@
+{
+  "gaps": [
+    {
+      "type": "overturning",
+      "target_position": "rooted-acl-boundary-stock-vs-root-luna-matrix: three-tier ACL (Tier A stock SSAP ~30 verbs, Tier B sideload OSE query/operation via requiredPermissions, Tier C root-only TV-private com.webos.service.capture/eim/oledepl/pqcontroller/tv.* with provides=[private,tv.services,all] + oem TrustLevel requiring elevate-service all pseudo-role)",
+      "search_queries": [
+        "LG webOS TV 04.40.16 5.4.1 groups.json api.json firmware dump private Luna ACL",
+        "ls-monitor -i com.webos.service.capture com.webos.service.eim provides private tv.services",
+        "openlgtv epk2extract webOS TV roles client-permissions all pseudo-role"
+      ],
+      "source_type": "industry",
+      "priority": "critical",
+      "rationale": "Draft section 1 audit table and section 2 bidirectional matrix colour every row by this tier boundary. No source in the vault publishes TV-proprietary groups.json or ls-monitor -i for 04.40.16 AU — the position rests on OSE analogue plus bscpylgtv disabled block and one live 401 probe. A firmware dump or practitioner trace showing tv.* as public/dev would collapse Tier C into Tier B and invalidate the root-necessity claim; confirming private/oem would harden it. Foundational load-bearing — must be verified before drafting."
+    },
+    {
+      "type": "overturning",
+      "target_position": "credentialless-root-detection-and-consented-ipk-orchestration: /var/lib/webosbrew/startup.sh + /var/lib/webosbrew/init.d respawn survived delta OTA via bind, elevate-service all survives, faultmanager/dejavuln still viable for 5.4.1 CX until 2025-08 patch",
+      "search_queries": [
+        "LG OLED48CX 04.40.16 AU OTA release notes OTAID webOS 5.4.1 delta update",
+        "throwaway96 faultmanager dejavuln patched 2025-08-24 webOS 5 OTA wipe list",
+        "webosbrew startup.sh OTA reconstitute var luna-service2 signed manifests wipe"
+      ],
+      "source_type": "industry",
+      "priority": "critical",
+      "rationale": "Sister integration second-mode fallback and companion persistence both assume durability. Vault has startup.sh code but no LG OTA manifest or OTAID-to-patch mapping for 04.40.16 AU. If next OTA permanently patches faultmanager and reconstitutes /var/lib + roles.d, rooted state is one-way fragile and the roadmap must downgrade to stock-fallback with OTA-block warning and re-probe logic. Overturns install-orchestration ordering and roadmap phasing."
+    },
+    {
+      "type": "overturning",
+      "target_position": "credentialless-root-detection-and-consented-ipk-orchestration: org.webosbrew.hbchannel.service/exec and /install reachable credential-less over WS SSAP ws:3000/3001 without prior client_key pairing (single WS exec probe for uid=0 before any TCP 23/22)",
+      "search_queries": [
+        "org.webosbrew.hbchannel.service exec ws SSAP authentication pairing required",
+        "webosbrew hbchannel install ipkUrl ipkHash luna websocket unauthenticated",
+        "luna hbchannel.service exec command id uid=0 root probe webosbrew forum"
+      ],
+      "source_type": "industry",
+      "priority": "critical",
+      "rationale": "Entire consented hybrid probe — passive SSDP → WS exec → mDNS → WS upgrade — assumes exec is invocable before companion elevation and without client_key. No fetched note demonstrates an unauthenticated WS call to hbchannel.service succeeding on 5.4.1; elevate-service itself is only evidence of filesystem patch, not WS gateway policy. If WS gateway enforces requiredPermissions or pairing before hbchannel, detection falls back to consented TCP 23/22 probes only, breaking the Platinum no-port-scan promise and collapsing to direct appInstallService path."
+    },
+    {
+      "type": "independent-verification",
+      "target_position": "companion-lifecycle-enact-vs-js-service-vs-systemd-persistence hybrid + ultimate-edge-node-cec-ambient-voice-dashboard-soc-limits: foreground+explicit+persist ActivityManager + 30s FakeActivityManager stub keeps WS alive through visibilityChange:hidden and memoryd only kills background at low.enter 250MB / critical.enter 100MB on CX 3GB SoC",
+      "search_queries": [
+        "com.webos.service.memorymanager getMemoryStatus OLED48CXPTA 04.40.16 total available threshold",
+        "webOS TV 5.4.1 sam memoryd kill PSS Enact requiredMemory 120 hyperion webos",
+        "luna-send getMemoryStatus sysInfo PSS View OLED CX hyperhdr piccap memory"
+      ],
+      "source_type": "industry",
+      "priority": "critical",
+      "rationale": "Vault cites OSE reference values (available 5995 / total 7538 / low 250 / critical 100) but no instrumented dump from 10.1.1.209 under broadcast + HDMI + flatbuffer load. OSE may not scale to 3GB CX; if CX thresholds are ~120/60 and suspended Enact PSS exceeds 150MB, the foreground Activity holder will still be reaped and the mind-blowing concurrent ambient+dashboard+voice stack is infeasible. Directly decides whether hybrid survives or draft must budget reduced capture and disable voice by default."
+    },
+    {
+      "type": "overturning",
+      "target_position": "rooted-acl-boundary-stock-vs-root-luna-matrix Tier A: stock WS SSAP ~30 verbs reachable by spoofing com.lge.test TEST_SECURE manifest via bscpylgtv/aiowebostv without sideloaded requiredPermissions",
+      "search_queries": [
+        "bscpylgtv com.lge.test TEST_SECURE manifest ws 401 webOS 5.4.1 04.40.16 hardened",
+        "LG webOS SSAP manifest validation patch 2024 2025 Blocked pairing permissions",
+        "luna-send-pub setConfigs systemconfig.management 401 sideload requiredPermissions test"
+      ],
+      "source_type": "investigative",
+      "priority": "high",
+      "rationale": "If LG hardened SSAP gateway on 04.40.16 to reject spoofed vendorId com.lge or TEST_SECURE permissions, Tier A shrinks and many stock rows in the bidirectional matrix would incorrectly claim stock-reachable. Vault notes bscpylgtv endpoints disabled block but no live WS register trace on 04.40.16 showing register_0 success vs 401. Verifying hardening bounds the sister integration's stock-mode entity set and the companion's minimum requiredPermissions."
+    },
+    {
+      "type": "strengthening",
+      "target_position": "platinum-second-mode-sister-integration-gap: Gold→Platinum delta is strict-typing + inject-websession + async-dependency + runtime_data requiring BscPyLGTVClientWrapper with client_session kwarg because bscpylgtv 0.5.3 lacks aiohttp session injection and py.typed",
+      "search_queries": [
+        "Home Assistant hassfest quality_scale inject-websession websockets exemption validator",
+        "home-assistant core script hassfest quality_scale.py inject-websession websockets",
+        "Home Assistant Platinum bscpylgtv aiowebostv inject-websession discussion 2026"
+      ],
+      "source_type": "industry",
+      "priority": "high",
+      "rationale": "Draft's sister-repo GitHub issue hinges on wrapper-vs-migrate cost. Rule pages say websession rule is waived if no HTTP requests, but all Platinum exemplars use aiohttp for WS. Whether hassfest's validator exempts websockets-only deps would flip the position from 'must wrap' to 'already passes' — saving a full module and 20+ tests. Needs the validator source or an HA core maintainer ruling, not documentation inference."
+    },
+    {
+      "type": "independent-verification",
+      "target_position": "transport-discovery-security-pairing-ws-mqtt-hybrid: single mandatory WS wss://:3001 re-using client_key + mDNS TXT suffices for Platinum local_push; MQTT optional for high-rate ambient/voice/CEC telemetry; WS ping_interval=1s survives Active Standby without LWT",
+      "search_queries": [
+        "webOS TV JS service Node ws concurrent wss 3001 companion 9923 performance 30Hz",
+        "Home Assistant webostv Active Standby ws disconnect LWT retain MQTT vs websocket",
+        "hyperion-webos flatbuffer 19400 websocket saturation latency piccap OLED CX"
+      ],
+      "source_type": "industry",
+      "priority": "high",
+      "rationale": "Commitment that WS alone handles 10–30Hz capture hashes and voice PCM without back-pressure rests on inference from piccap analogue, not a measured CX WS saturation test. Vault has no Node ws throughput or dual-WS memory data on webOS 5.x Node 12/14. If CX event loop starves or WS subscriptions drop in Active Standby without LWT, MQTT must be promoted from opt-in to mandatory hybrid and the transport section must redesign availability_topic and retain handling."
+    },
+    {
+      "type": "strengthening",
+      "target_position": "ultimate-edge-node-cec-ambient-voice-dashboard-soc-limits: ambient flagship requires rooted unicapture libvtcapture+libhalgal with quirks 0x1|0x2|0x40|0x100 and AI Picture Pro/Brightness/Genre off or 200-500ms dropouts occur; voice satellite needs USB usb_mic0 array not built-in array-mic",
+      "search_queries": [
+        "hyperion-webos libvtcapture libdile_vt quirks 0x100 OLED48CX stabilised capture AI Picture",
+        "piccap AI Picture Pro dropout 200ms flatbuffer timeout webOS 5 rooted CX test",
+        "com.webos.service.audio listSupportedDevices usb_mic0 webos tv voice wyoming wake"
+      ],
+      "source_type": "investigative",
+      "priority": "high",
+      "rationale": "Mind-blowing tier's flagship is gated on two audited absences: no CX-specific quirk trial and no listSupportedDevices dump showing mic/camera hardware. Vault documents V4L2-only camera and ai.management gate but not whether CX with quirks 0 yields stable 30fps with AI on. Confirming quirk set and AI-off necessity determines whether ambient is default-feature or documented niche, and whether voice defaults on or off — directly shaping the phased roadmap's credibility."
+    }
+  ]
+}

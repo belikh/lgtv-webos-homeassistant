@@ -1,0 +1,120 @@
+{
+  "manifest_version": 1,
+  "vault_tag": "lgtv-webos-ha-root-1a89ff",
+  "profile": "full",
+  "profile_steps": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16"
+  ],
+  "status": "done",
+  "started_at": "2026-08-28T02:11:02.856995+00:00",
+  "updated_at": "2026-08-28T03:23:57.477122+00:00",
+  "budget_usd": null,
+  "blocked_on": null,
+  "steps": {
+    "1": {
+      "status": "done",
+      "finished_at": "2026-08-28T02:11:38.156168+00:00"
+    },
+    "2": {
+      "status": "done",
+      "started_at": "2026-08-28T02:11:38.576212+00:00",
+      "finished_at": "2026-08-28T02:18:11.444430+00:00"
+    },
+    "3": {
+      "status": "done",
+      "started_at": "2026-08-28T02:18:11.856226+00:00",
+      "finished_at": "2026-08-28T02:18:38.837302+00:00"
+    },
+    "4": {
+      "status": "done",
+      "started_at": "2026-08-28T02:18:39.243038+00:00",
+      "finished_at": "2026-08-28T02:23:46.126683+00:00"
+    },
+    "5": {
+      "status": "done",
+      "started_at": "2026-08-28T02:23:46.518317+00:00",
+      "finished_at": "2026-08-28T03:08:14.095052+00:00"
+    },
+    "6": {
+      "status": "done",
+      "started_at": "2026-08-28T03:08:14.490717+00:00",
+      "finished_at": "2026-08-28T03:08:39.724648+00:00"
+    },
+    "7": {
+      "status": "done",
+      "started_at": "2026-08-28T03:08:40.144508+00:00",
+      "finished_at": "2026-08-28T03:09:09.214674+00:00"
+    },
+    "8": {
+      "status": "done",
+      "started_at": "2026-08-28T03:09:09.571557+00:00",
+      "finished_at": "2026-08-28T03:17:37.143093+00:00"
+    },
+    "9": {
+      "status": "done",
+      "started_at": "2026-08-28T03:17:37.560322+00:00",
+      "finished_at": "2026-08-28T03:18:14.422214+00:00"
+    },
+    "10": {
+      "status": "done",
+      "started_at": "2026-08-28T03:18:14.824054+00:00",
+      "finished_at": "2026-08-28T03:22:44.291281+00:00"
+    },
+    "11": {
+      "status": "done",
+      "finished_at": "2026-08-28T03:22:44.727050+00:00"
+    },
+    "12": {
+      "status": "done",
+      "finished_at": "2026-08-28T03:22:45.152644+00:00"
+    },
+    "13": {
+      "status": "done",
+      "finished_at": "2026-08-28T03:22:45.577260+00:00"
+    },
+    "14": {
+      "status": "done",
+      "finished_at": "2026-08-28T03:22:46.007959+00:00"
+    },
+    "15": {
+      "status": "done",
+      "finished_at": "2026-08-28T03:22:46.440069+00:00"
+    },
+    "16": {
+      "status": "done",
+      "finished_at": "2026-08-28T03:22:46.870129+00:00"
+    }
+  },
+  "chapters": {},
+  "spend": {
+    "estimated_usd": 0.0,
+    "sources_fetched": 0,
+    "notes_written": 0,
+    "agents_spawned": 0
+  },
+  "levers": {
+    "register": "analyze",
+    "inference_depth": "deep",
+    "domain_notes": "Sourcing: academic APIs first then webOS OSE/docs, webosbrew/RootMyTV, LG SDK, HA core webostv and bscpylgtv webos_client.py internals, HA Quality Scale. Strong evidence is live luna-send on 10.1.1.209, published Luna service docs, and the sister repo's 325-test harness. Recency window 24 months for webOS firmware/root methods; HA core 2026.8 matters for platinum rules."
+  },
+  "verify": {
+    "passed": true,
+    "at": "2026-08-28T03:23:57.476545+00:00",
+    "failed_checks": []
+  }
+}

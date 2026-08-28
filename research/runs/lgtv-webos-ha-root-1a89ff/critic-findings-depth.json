@@ -1,0 +1,1 @@
+{"findings": [{"id":"DP1","severity":"low","location":"## 1. Root vs Stock","issue":"ACL table could list ls-monitor -i output line for capture","proposed_edit":"Append one-line ls-monitor example","status":"acknowledged"}]}

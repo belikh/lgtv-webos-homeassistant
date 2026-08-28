@@ -1,0 +1,47 @@
+[
+  {
+    "cluster_id": "enact-vs-vanilla-js-service",
+    "fight": "Enact/React foreground app vs vanilla JS service for HA companion — which survives sam/memoryd kills and offers keep-alive?",
+    "side_a": {"position": "Enact requires foreground app for JS service lifecycle; vanilla JS service with ActivityManager keep-alive is more resilient", "claims": ["JS service 5s idle timer kills inactive services; ActivityManager activity needed"], "sources": ["javascript-service-faq-webos-tv-developer", "activity-manager-api-reference-guide-webos-tv-developer"]},
+    "side_b": {"position": "Enact provides full UI for dashboard rendering; vanilla JS suffices only for headless", "claims": ["Enact is LG-recommended for TV UI; JS service alone cannot render Lovelace"], "sources": ["cli-developer-guide-webos-tv-developer", "js-service-usage-webos-tv-developer"]},
+    "evidence_quality_delta": "side_a stronger (official LG docs on idle timer)",
+    "scope_overlap": "genuine disagreement — headless vs UI needs",
+    "decision_relevance": "high"
+  },
+  {
+    "cluster_id": "homebrew-vs-appinstallservice",
+    "fight": "Homebrew Channel elevate-service vs com.webos.appInstallService/dev/install for rooted IPK install",
+    "side_a": {"position": "Homebrew elevate-service (piccap pattern) is de-facto standard for rooted", "claims": ["PicCap ships hyperion-webos via elevate-service; scp + luna-send dev/install works"], "sources": ["github-tbsnillerpiccap", "github-webosbrewhyperion-webos"]},
+    "side_b": {"position": "Direct appInstallService is more portable and survives Homebrew removal", "claims": ["luna://com.webos.appInstallService/dev/install is official sideload API"], "sources": ["cli-developer-guide-webos-tv-developer"]},
+    "evidence_quality_delta": "side_a stronger (live fingerprint on 10.1.1.209 uses Homebrew)",
+    "scope_overlap": "genuine — different privilege paths",
+    "decision_relevance": "high"
+  },
+  {
+    "cluster_id": "ws-vs-mqtt-transport",
+    "fight": "Persistent WebSocket vs MQTT for HA local push between TV and coordinator",
+    "side_a": {"position": "WebSocket re-uses bscpylgtv's ws:3000 channel and coordinator push model", "claims": ["bscpylgtv already uses ws:3000 with subscriptions; WebSocket fits HA local_push"], "sources": ["bscpylgtvbscpylgtvwebos_clientpy", "github-home-assistant-libsaiowebostv"]},
+    "side_b": {"position": "MQTT is HA-native for edge nodes and handles reconnect/retain better", "claims": ["HA MQTT discovery auto-creates entities; broker handles last-will"], "sources": ["mqtt-home-assistant"]},
+    "evidence_quality_delta": "even — both have HA precedents",
+    "scope_overlap": "scoped differently — WS is peer-to-peer, MQTT needs broker",
+    "decision_relevance": "high"
+  },
+  {
+    "cluster_id": "ws-401-vs-luna-privilege",
+    "fight": "WS SSAP 401 vs root luna-send privilege — is WS sufficient for new entities?",
+    "side_a": {"position": "WS SSAP gated by appinfo requiredPermissions; many Luna endpoints return 401 without root", "claims": ["probe on 10.1.1.209 returned 401 for getForegroundAppInfo over WS, but luna-send as root succeeded"], "sources": ["security-guide-webos-open-source-edition", "luna-service-bus-webos-homebrew-project"]},
+    "side_b": {"position": "Injecting requiredPermissions via appinfo can unlock some endpoints without root", "claims": ["requiredPermissions in appinfo.json generates LS2 client permissions"], "sources": ["security-guide-webos-open-source-edition"]},
+    "evidence_quality_delta": "side_a stronger (live 401 probe)",
+    "scope_overlap": "genuine — stock vs rooted ACL",
+    "decision_relevance": "high"
+  },
+  {
+    "cluster_id": "store-vs-homebrew-distribution",
+    "fight": "LG Content Store vs Homebrew Channel for distributing rooted companion IPK",
+    "side_a": {"position": "Homebrew Channel is only viable for root-privileged perms; store would strip them", "claims": ["requiredPermissions like all would be rejected by LG review"], "sources": ["rooting-webos-homebrew", "github-webosbrewwebos-homebrew-channel"]},
+    "side_b": {"position": "Store gives discoverability and auto-updates; some users prefer non-root", "claims": ["Store apps can use devmode sideload for 50h sessions"], "sources": ["rooting-webos-homebrew"]},
+    "evidence_quality_delta": "side_a stronger for this use case",
+    "scope_overlap": "scoped — rooted vs non-root distribution",
+    "decision_relevance": "medium"
+  }
+]

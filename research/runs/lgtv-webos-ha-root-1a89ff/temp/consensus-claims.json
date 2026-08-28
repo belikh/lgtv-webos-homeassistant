@@ -1,0 +1,8 @@
+[
+  {"claim": "webOS TV uses Luna Service Bus (LS2) with ACG/TrustLevel; requiredPermissions in appinfo.json controls access", "sources": ["security-guide-webos-open-source-edition", "luna-service-bus-webos-homebrew-project", "using-ls2-api-in-web-apps-webos-open-source-edition"], "independence": 3.0},
+  {"claim": "JS services have 5s idle timer; ActivityManager keep-alive activity required for persistence", "sources": ["javascript-service-faq-webos-tv-developer", "activity-manager-api-reference-guide-webos-tv-developer"], "independence": 3.0},
+  {"claim": "RootMyTV v1/v2 patched mid-2022; newer methods are faultmanager/dejavuln autoroot for webOS 4+", "sources": ["rooting-webos-homebrew", "github-throwaway96faultmanager-autoroot", "github-throwaway96dejavuln-autoroot"], "independence": 3.0},
+  {"claim": "PicCap/hyperion-webos uses elevate-service on rooted TV to capture HDMI via libvt/libhalgal backends", "sources": ["github-tbsnillerpiccap", "github-webosbrewhyperion-webos"], "independence": 3.0},
+  {"claim": "Home Assistant Platinum requires async-dependency, inject-websession, strict-typing", "sources": ["integration-quality-scale-home-assistant-developer-docs", "strict-typing-home-assistant-developer-docs", "dependency-is-async-home-assistant-developer-docs"], "independence": 3.0},
+  {"claim": "webOS TV SSDP discovery uses urn:lge-com:service:webos-second-screen:1 and HA webostv integration uses local_push", "sources": ["lg-webos-tv-home-assistant", "simple-service-discovery-protocol-ssdp-home-assistant", "corehomeassistantcomponentswebostv__init__py-at-dev-home-assistantcore-github"], "independence": 3.0}
+]

@@ -1,0 +1,1 @@
+{"findings": [{"id":"W1","severity":"low","location":"## 2. Bidirectional Matrix","issue":"Matrix could add DLNA cast vs HDMI-CEC row","proposed_edit":"Add DLNA row coloured B","status":"acknowledged"}]}

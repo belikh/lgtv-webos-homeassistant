@@ -1,0 +1,7 @@
+.hyperresearch/
+.opencode/
+research/raw/
+node_modules/
+build/
+*.ipk
+.DS_Store

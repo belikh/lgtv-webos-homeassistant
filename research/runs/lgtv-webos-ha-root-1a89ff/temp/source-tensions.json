@@ -1,0 +1,100 @@
+{
+  "tensions": [
+    {
+      "name": "WS SSAP all-unlock myth vs three-tier ACG reality",
+      "side_a": {
+        "position": "Root via luna-send all-role unlocks essentially every TV-private Luna method, so the WS 401 is just a thin veil.",
+        "evidence": "luna-service-bus-webos-homebrew-project states luna-send as root has pseudo-role all; piccap elevates via org.webosbrew.hbchannel.service/exec to capture flatbuffer",
+        "proponents": ["luna-service-bus-webos-homebrew-project", "github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git"]
+      },
+      "side_b": {
+        "position": "Stock WS is three-tier — ~30 verbs succeed stock, ~8–12 unlock via requiredPermissions, TV-proprietary private still 401; root only flips third tier and OTA can revert roles.",
+        "evidence": "security-guide-webos-open-source-edition defines dev/part/oem TrustLevel and requiredPermissions generative rule; live 10.1.1.209 probe shows 401 over WS but success via root luna-send",
+        "proponents": ["security-guide-webos-open-source-edition", "using-ls2-api-in-web-apps-webos-open-source-edition", "interim-report-rooted-acl-boundary-stock-vs-root-luna-matrix"]
+      },
+      "resolution": "Side B is load-bearing — the three-tier model explains both why requiredPermissions unlocks a subset without root and why hyperion capture still needs elevate-service; the draft's section 1 table must show stock vs OSE-query vs private rows, not binary stock-vs-root.",
+      "origin": "comparisons",
+      "decision_relevance": "high"
+    },
+    {
+      "name": "ActivityManager keep-alive vs systemd init.d persistence",
+      "side_a": {
+        "position": "Foreground+explicit+persist ActivityManager activity with FakeActivityManager stub is sufficient and memoryd-aware.",
+        "evidence": "javascript-service-faq-webos-tv-developer 5s No active activities kill; activity-manager-api-reference-guide-webos-tv-developer foreground/persist/explicit semantics",
+        "proponents": ["javascript-service-faq-webos-tv-developer", "activity-manager-api-reference-guide-webos-tv-developer", "interim-report-companion-lifecycle-enact-vs-js-service-vs-systemd-persistence"]
+      },
+      "side_b": {
+        "position": "Only webosbrew init.d native companion under /var/lib/webosbrew/startup.sh survives sam/memoryd and OTA as PID 1 companion, Activities do not survive reboot without persist DB.",
+        "evidence": "github-webosbrewwebos-homebrew-channel-unofficial-webos-tv-homebrew-store-and-ro startup.sh init.d; rooting-webos-homebrew failsafe behaviour",
+        "proponents": ["github-webosbrewwebos-homebrew-channel-unofficial-webos-tv-homebrew-store-and-ro", "rooting-webos-homebrew"]
+      },
+      "resolution": "Both needed — hybrid is the synthesis: ActivityManager for JS service liveness within boot, init.d native for boot-persistent flatbuffer and WS server; the draft must budget both in section 4.",
+      "origin": "comparisons",
+      "decision_relevance": "high"
+    },
+    {
+      "name": "Homebrew elevate-service vs direct dev/install — which survives channel churn",
+      "side_a": {
+        "position": "Homebrew hbchannel.service/install with SHA256 and spawn as root is de-facto and proven on 10.1.1.209.",
+        "evidence": "github-tbsnillerpiccap manual scp + luna dev/install via elevate-service; github-webosbrewwebos-homebrew-channel hbchannel.service/install",
+        "proponents": ["github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git", "github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github"]
+      },
+      "side_b": {
+        "position": "Direct luna://com.webos.appInstallService/dev/install over Dropbear 22/ares 9922 is portable if Homebrew is removed or in failsafe.",
+        "evidence": "cli-developer-guide-webos-tv-developer ares-install; github-webosbrewdev-manager-desktop devmode manager on port 9922",
+        "proponents": ["cli-developer-guide-webos-tv-developer", "github-webosbrewdev-manager-desktop-devicedevmode-manager-for-webos-tv-github"]
+      },
+      "resolution": "Consented hybrid — probe HB exec first, use HB install when HB proves root, fallback to scp+/tmp/sha256+dev/install; draft section 3 must show version pinning and rollback in HA diagnostics.",
+      "origin": "comparisons",
+      "decision_relevance": "high"
+    },
+    {
+      "name": "WS re-use client_key vs MQTT brokered discovery",
+      "side_a": {
+        "position": "Single WS wss://:3001 re-using bscpylgtv StorageSqliteDict client_key plus mDNS TXT is enough for Platinum local_push.",
+        "evidence": "bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github 2112-line client with ping_interval and subscriptions; corehomeassistantcomponentswebostv__init__py local_push coordinator",
+        "proponents": ["bscpylgtvbscpylgtvwebos_clientpy-at-master-chros73bscpylgtv-github", "github-home-assistant-libsaiowebostv-python-library-to-control-lg-webos-based-tv"]
+      },
+      "side_b": {
+        "position": "MQTT with HA discovery, birth/will, retain auto-creates entities and handles last-will better than bespoke WS.",
+        "evidence": "mqtt-home-assistant discovery/birth/last-will retain; zero-configuration-networking-zeroconf-home-assistant",
+        "proponents": ["mqtt-home-assistant", "interim-report-transport-discovery-security-pairing-ws-mqtt-hybrid"]
+      },
+      "resolution": "WS mandatory, MQTT opt-in — broker adds second credential store and split-brain for no sink entity; hybrid with mDNS advertisement and 2s getCapabilities probe balances Platinum inject-websession.",
+      "origin": "contradiction-graph",
+      "decision_relevance": "high"
+    },
+    {
+      "name": "Ambient capture flagship vs AI Picture Pro dropout cost",
+      "side_a": {
+        "position": "Ambient capture via hyperion-webos unicapture is the mind-blowing flagship and worth the AI Picture Pro off tradeoff.",
+        "evidence": "github-tbsnillerpiccap backends libvt/libhalgal quirks 0x1-0x100; github-webosbrewhyperion-webos blending vtCapture+halgal",
+        "proponents": ["github-tbsnillerpiccap-piccap-hyperion-sender-app-ambilight-for-lg-webos-tvs-git", "github-webosbrewhyperion-webos-hyperionng-video-grabber-for-webos-github"]
+      },
+      "side_b": {
+        "position": "AI Picture Pro/Brightness/Genre conflict causes 200-500ms flatbuffer dropouts and Enact Lovelace at 120MB PSS competes with memoryd low 250MB threshold on CX 3GB.",
+        "evidence": "app-resources-webos-tv-developer requiredMemory; comwebosservicememorymanager-webos-open-source-edition low.enter 250MB",
+        "proponents": ["interim-report-ultimate-edge-node-cec-ambient-voice-dashboard-soc-limits", "javascript-service-faq-webos-tv-developer"]
+      },
+      "resolution": "Flagship but scoped — capture at 256x144@30 flatbuffer with UI halgal disabled, AI modes off, as explicit contract; dashboard suspended Enact warm via foreground Activity, not continuous.",
+      "origin": "orphan-scan",
+      "decision_relevance": "medium"
+    },
+    {
+      "name": "Gold→Platinum strict-typing vs bscpylgtv sync wrapper",
+      "side_a": {
+        "position": "Sister integration can reach Platinum by adding py.typed + .strict-typing wrapper around sync bscpylgtv 0.5.3 without upstream PEP-561.",
+        "evidence": "strict-typing-home-assistant-developer-docs py.typed; integration-quality-scale-home-assistant-developer-docs Platinum requires mypy",
+        "proponents": ["strict-typing-home-assistant-developer-docs", "integration-quality-scale-home-assistant-developer-docs"]
+      },
+      "side_b": {
+        "position": "bscpylgtv is websockets-only with StorageSqliteDict blocking; Platinum inject-websession/dependency-is-async demands async_get_clientsession passthrough and thus migration to aiowebostv.",
+        "evidence": "dependency-is-async-home-assistant-developer-docs; bscpylgtvbscpylgtvwebos_clientpy websockets without aiohttp session",
+        "proponents": ["dependency-is-async-home-assistant-developer-docs", "the-integration-dependency-supports-passing-in-a-websession-home-assistant-devel"]
+      },
+      "resolution": "Surgical wrapper wins for roadmap phase 1 — wrap websockets client with HA executor + session passthrough and typed ConfigEntry[Coordinator]; aiowebostv migration is phase 2, not blocking Platinum.",
+      "origin": "orphan-scan",
+      "decision_relevance": "high"
+    }
+  ]
+}

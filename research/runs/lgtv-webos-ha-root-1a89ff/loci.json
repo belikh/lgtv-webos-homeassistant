@@ -1,0 +1,84 @@
+{
+  "loci": [
+    {
+      "name": "rooted-acl-boundary-stock-vs-root-luna-matrix",
+      "one_line": "Which Luna methods flip from WS 401 to success as root — the per-method stock vs rooted audit for 5.4.1 04.40.16?",
+      "flavor": "dialectical",
+      "importance": 10,
+      "uncertainty": 8,
+      "disagreement": 7,
+      "decision_impact": 9,
+      "composite_score": 34,
+      "source_budget": 10,
+      "rationale": "Live 10.1.1.209 probe is strongest evidence; Security Guide ACG/TrustLevel and Luna bus all-role vs per-method requiredPermissions directly decide bidirectional matrix and what root actually unlocks."
+    },
+    {
+      "name": "companion-lifecycle-enact-vs-js-service-vs-systemd-persistence",
+      "one_line": "Enact foreground + JS service + systemd vs vanilla JS with ActivityManager keep-alive against sam/memoryd on OLED48CX?",
+      "flavor": "dialectical",
+      "importance": 9,
+      "uncertainty": 8,
+      "disagreement": 7,
+      "decision_impact": 8,
+      "composite_score": 32,
+      "source_budget": 8,
+      "rationale": "5s idle timer and ActivityManager create/adopt/complete vs webosbrew init.d overlay decides whether headless companion can host WS/MQTT and survive kills; Enact needed for dashboard."
+    },
+    {
+      "name": "credentialless-root-detection-and-consented-ipk-orchestration",
+      "one_line": "Credential-less root probe cascade + user-consented IPK install via Homebrew vs appInstallService vs ares — which survives OTA and versions safely?",
+      "flavor": "dialectical",
+      "importance": 9,
+      "uncertainty": 7,
+      "disagreement": 7,
+      "decision_impact": 9,
+      "composite_score": 32,
+      "source_budget": 7,
+      "rationale": "Combines autodetect (telnet23/Dropbear22/overlay/startup.sh/hbchannel.service) and install (elevate-service vs dev/install vs ares-install) into one consented config-flow orchestration for Platinum."
+    },
+    {
+      "name": "transport-discovery-security-pairing-ws-mqtt-hybrid",
+      "one_line": "WS re-using ws:3000 client-key vs MQTT discovery with mDNS/SSDP, TLS, and least-privilege permissions — hybrid or single?",
+      "flavor": "dialectical",
+      "importance": 8,
+      "uncertainty": 7,
+      "disagreement": 6,
+      "decision_impact": 7,
+      "composite_score": 28,
+      "source_budget": 6,
+      "rationale": "Decides coordinator local_push vs broker, capability advertisement, token rotation, and inject-websession compliance."
+    },
+    {
+      "name": "ultimate-edge-node-cec-ambient-voice-dashboard-soc-limits",
+      "one_line": "Which edge-node feats (CEC hub, ambient capture, voice satellite, Lovelace dashboard) are feasible under CX SoC/memory and need elevated native binaries?",
+      "flavor": "convergent",
+      "importance": 8,
+      "uncertainty": 9,
+      "disagreement": 6,
+      "decision_impact": 7,
+      "composite_score": 30,
+      "source_budget": 6,
+      "rationale": "Mind-blowing roadmap hinges on unicapture quirks, AI Picture conflict, UMI audio, and sam/memoryd limits — audited absence is load-bearing."
+    },
+    {
+      "name": "platinum-second-mode-sister-integration-gap",
+      "one_line": "Exact Gold→Platinum delta for bscpylgtv 0.5.3 sister integration and native-app-present second-mode negotiation with graceful fallback?",
+      "flavor": "convergent",
+      "importance": 8,
+      "uncertainty": 7,
+      "disagreement": 5,
+      "decision_impact": 8,
+      "composite_score": 28,
+      "source_budget": 3,
+      "rationale": "Maps strict-typing/async/inject-websession/runtime_data/diagnostics to 325-test harness and designs second-mode flag, entity registry, and GitHub issue markdown."
+    }
+  ],
+  "skip_loci": [
+    {"slug": "store-vs-homebrew-distribution-discoverability", "reason": "Medium relevance; Homebrew is only viable for privileged perms, Store would strip all. Subsumed by credentialless detection+install locus."},
+    {"slug": "firmware-ota-breaking-root-adversarial-standalone", "reason": "OTA survival is risk thread inside ACL and probe loci, not standalone; corpus well-covered with RootMyTV patched mid-2022 and webosbrew failsafe."},
+    {"slug": "generic-mqtt-vs-websocket-iot-theory", "reason": "Pure theory without webOS grounding; concretised as transport-discovery hybrid with bscpylgtv/mDNS evidence."},
+    {"slug": "academic-smart-tv-companion-architecture-papers", "reason": "Academic niche thin; webOS OSE docs and webosbrew gray literature are canonical per domain notes."},
+    {"slug": "enact-vs-vanilla-foreground-needs-duplicate", "reason": "Duplicate of companion-lifecycle; merged."},
+    {"slug": "homebrew-install-vs-appinstallservice-ares-duplicate", "reason": "Merged into credentialless detection+install locus."}
+  ]
+}
