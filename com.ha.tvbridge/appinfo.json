@@ -1,0 +1,27 @@
+{
+  "id": "com.ha.tvbridge",
+  "version": "1.0.0",
+  "vendor": "belikh",
+  "type": "web",
+  "main": "index.html",
+  "title": "HA TV Bridge",
+  "icon": "icon.png",
+  "handlesRelaunch": true,
+  "requiredMemory": 120,
+  "requiredPermissions": [
+    "audio.operation",
+    "audio.query",
+    "application.operation",
+    "application.launcher",
+    "tv.operation",
+    "tv.query",
+    "config.query",
+    "com.webos.service.cec.query",
+    "com.webos.service.cec.operation",
+    "activity.operation",
+    "activity.query",
+    "database.operation",
+    "settings.query",
+    "com.webos.notification"
+  ]
+}

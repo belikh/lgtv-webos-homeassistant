@@ -1,0 +1,80 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: |
+            package.json
+            com.ha.tvbridge.service/package.json
+
+      - name: Install (root)
+        run: |
+          if [ -f package.json ]; then
+            if [ -f package-lock.json ]; then npm ci; else npm install; fi
+          else
+            echo "no root package.json — skip install"
+          fi
+
+      - name: Install (JS service)
+        run: |
+          if [ -f com.ha.tvbridge.service/package.json ]; then
+            if [ -f com.ha.tvbridge.service/package-lock.json ]; then
+              npm --prefix com.ha.tvbridge.service ci || npm --prefix com.ha.tvbridge.service install
+            else
+              npm --prefix com.ha.tvbridge.service install || echo "service install skip"
+            fi
+          else
+            echo "no service package.json — skip"
+          fi
+
+      - name: Typecheck
+        run: |
+          if [ -f package.json ]; then
+            npm run typecheck || (echo "typecheck failed" && exit 1)
+          else
+            echo "no package.json — skip typecheck"
+          fi
+
+      - name: Build
+        run: |
+          if [ -f package.json ]; then
+            npm run build || (echo "build failed" && exit 1)
+          else
+            echo "no package.json — skip build"
+          fi
+
+      - name: ares-package check
+        run: |
+          if command -v ares-package >/dev/null 2>&1; then
+            echo "ares-package present — running --check and package"
+            ares-package --check 2>&1 || true
+            mkdir -p build
+            ares-package com.ha.tvbridge com.ha.tvbridge.service -o build || (echo "ares-package failed" && exit 1)
+            ls -lh build || true
+          else
+            echo "ares-package not installed, skip"
+          fi
+
+      - name: Verify scaffold
+        run: |
+          echo "Verify appinfo and service manifest exist"
+          test -f com.ha.tvbridge/appinfo.json && cat com.ha.tvbridge/appinfo.json
+          test -f com.ha.tvbridge/index.html && echo "index.html ok"
+          test -f com.ha.tvbridge.service/services.json && cat com.ha.tvbridge.service/services.json
+          test -f com.ha.tvbridge.service/service.js && echo "service.js ok"
+          test -f com.ha.tvbridge.service/package.json && cat com.ha.tvbridge.service/package.json

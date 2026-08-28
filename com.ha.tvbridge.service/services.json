@@ -1,0 +1,13 @@
+{
+  "id": "com.ha.tvbridge.service",
+  "description": "HA TV Bridge JS service — ActivityManager keepalive + wss:9923 companion WS",
+  "services": [
+    {
+      "name": "com.ha.tvbridge.service",
+      "description": "Companion service for Home Assistant",
+      "activitymanager": {
+        "multiple": false
+      }
+    }
+  ]
+}

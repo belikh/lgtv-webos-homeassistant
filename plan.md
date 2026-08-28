@@ -2,19 +2,21 @@
 
 > This is the executable companion to research/notes/final_report_lgtv-webos-ha-root-1a89ff.md — the roadmap's phase table and file map only.
 
-## File map for empty repo
+## File map for empty repo (Phase 2 scaffold landed 2026-08-28)
 
 ```
 com.ha.tvbridge/           # Enact WebView (handlesRelaunch:true requiredMemory 120)
-  appinfo.json             # requiredPermissions as §5
-  main.js                  # webOSRelaunch -> PalmSystem.activate()
+  appinfo.json             # requiredPermissions as §5 (14 permissions)
+  index.html               # Enact placeholder + webOSRelaunch -> PalmSystem.activate()
+  icon.png                 # 1×1 placeholder for ares-package
 com.ha.tvbridge.service/   # JS service (fork+explicit+persist Activity)
   services.json            # com.ha.tvbridge.service
-  package.json             # name com.ha.tvbridge.service main service.js
-  service.js               # webos-service + ActivityManager create/adopt + ws wss:9923
-native/                    # elevated capture daemon (unicapture libvt+libhalgal) init.d
+  package.json             # name com.ha.tvbridge.service main service.js deps webos-service/ws node14
+  service.js               # webos-service + ActivityManager create/adopt + ws wss:9923 HMAC + CEC proxy
+native/                    # elevated capture daemon (unicapture libvt+libhalgal) init.d — Phase 3
   hyperion-webos           # flatbuffer 127.0.0.1:19400
-.github/workflows/ci.yml   # ares-package --check + mypy + ruff next to HA ci
+.github/workflows/ci.yml   # ares-package --check + npm typecheck (skip if absent)
+package.json / tsconfig.json / types/webos-service.d.ts  # root typecheck + build
 ```
 
 ## Platinum verify

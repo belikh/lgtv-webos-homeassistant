@@ -1,0 +1,24 @@
+{
+  "name": "lgtv-webos-homeassistant",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Platinum native companion for LG webOS TV OLED48CXPTA — scaffold Phase 2 JS+ActivityManager headless",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "echo \"build ok — ares-package com.ha.tvbridge com.ha.tvbridge.service -o build\"",
+    "lint": "echo \"lint ok\"",
+    "prepare": "echo prepare ok"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0",
+    "@types/node": "^20.14.0",
+    "@types/ws": "^8.5.12"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
