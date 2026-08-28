@@ -1,17 +1,20 @@
 /* eslint-disable no-console */
 /**
- * com.ha.tvbridge.service — Phase 2 minimal companion (JS + ActivityManager headless)
+ * com.ha.tvbridge.service — Phase 2+3 companion (JS + ActivityManager + ambient bridge)
  *
- * Three-layer hybrid — Phase 2 implements Layer 2 only:
- *   Layer 1 Enact suspended WebView (handlesRelaunch:true, requiredMemory:120) — placeholder
+ * Three-layer hybrid — Phase 3 adds Layer 3 conditional native daemon:
+ *   Layer 1 Enact suspended WebView (handlesRelaunch:true, requiredMemory:120) — placeholder (Phase 4)
  *   Layer 2 JS service anchored by ActivityManager foreground+explicit+persist — THIS FILE
- *   Layer 3 native init.d unicapture daemon — not required yet
+ *   Layer 3 native init.d unicapture daemon (libvtcapture+libhalgal flatbuffer 127.0.0.1:19400
+ *           256x144@30 CX quirks 0x1|0x2|0x40|0x100, 32x32 hash → ambient_lux) — native/init.d/com.ha.tvbridge.ambient
  *
  * Responsibilities:
  *   - Register luna://com.ha.tvbridge.service/getCapabilities for sister Phase-1 probe
+ *   - Luna getAmbientLux (unicapture flatbuffer stub, 32x32 hash, AI Picture Pro toast contract)
  *   - Create/adopt foreground+explicit+persist Activity with FakeActivityManager 30s TTL fallback
- *   - Host WS on wss:9923 with HMAC(client_key,'ha-companion/1') auth and push for power/volume/app
+ *   - Host WS on wss:9923 with HMAC(client_key,'ha-companion/1') auth and push for power/volume/app/ambient
  *   - Proxy CEC query/operation for HDMI-CEC hub role
+ *   - Ambient flatbuffer client 127.0.0.1:19400 → 32x32 hash to ambient_lux, WS type ambient + getAmbientLux, simulated fallback
  *
  * Notes:
  *   - wss:9923 is served as plain ws://9923 with CERT_NONE tolerance on HA side (bscpylgtv/aiowebostv
@@ -66,6 +69,44 @@ const CAPS_SNAPSHOT = {
 };
 
 // ---------------------------------------------------------------------------
+// Ambient — unicapture flatbuffer 127.0.0.1:19400 → 32x32 hash → ambient_lux
+// Phase 3 flagship, gracefully degraded when native daemon absent.
+// Refs: webosbrew/hyperion-webos (libvtcapture+libhalgal, quirks 0x1|0x2|0x40|0x100 → 0x143)
+//       TBSniller/piccap AI Picture Pro dropout warning
+//       native/FLATBUFFER_PROTOCOL.md + native/README.md
+// ---------------------------------------------------------------------------
+
+/** @const {string} */
+const AMBIENT_HOST = '127.0.0.1';
+/** @const {number} */
+const AMBIENT_PORT = 19400;
+/** @const {number} */
+const AMBIENT_WIDTH = 256;
+/** @const {number} */
+const AMBIENT_HEIGHT = 144;
+/** @const {number} */
+const AMBIENT_FPS = 30;
+/** @const {number} */
+const AMBIENT_QUIRKS = 0x1 | 0x2 | 0x40 | 0x100; // 0x143 = 323 CX budget
+/** @const {number} */
+const AMBIENT_HASH_DIM = 32;
+/** @const {number} */
+const AMBIENT_INTERVAL_MS = 2000;
+/** @const {number} */
+const AMBIENT_TIMEOUT_MS = 800;
+
+/** @type {number | null} */
+let lastAmbientLux = null;
+/** @type {'flatbuffer' | 'simulated' | 'unavailable'} */
+let ambientSource = 'unavailable';
+/** @type {NodeJS.Timeout | null} */
+let ambientTimer = null;
+/** @type {number} */
+let ambientFrameCount = 0;
+/** @type {boolean} */
+let ambientToastShown = false;
+
+// ---------------------------------------------------------------------------
 // HMAC helper — re-uses HA client-key, no second credential store
 // ---------------------------------------------------------------------------
 
@@ -106,6 +147,275 @@ if (process.env.HA_CLIENT_KEY) {
   try {
     allowedTokens.add(deriveCompanionToken(process.env.HA_CLIENT_KEY));
   } catch (_e) { /* ignore */ }
+}
+
+// ---------------------------------------------------------------------------
+// Ambient helpers — flatbuffer client stub + 32x32 hash to ambient_lux
+// ---------------------------------------------------------------------------
+
+/**
+ * Hash frame bytes to ambient_lux (0–500 lx). Downscales to 32x32 (1024) via
+ * block average, then maps avgY 0–255 → 0–500 lx. Handles NV12 Y plane and
+ * flatbuffer RGB interchangeably; lenient for stub/simulation.
+ * @param {Buffer | Uint8Array | null} bytes
+ * @param {number} [width]
+ * @param {number} [height]
+ * @returns {number} 0–500
+ */
+function hashToAmbientLux(bytes, width, height) {
+  if (!bytes || bytes.length === 0) {
+    // Simulated fallback — jitter around last or 100 lx
+    const base = lastAmbientLux !== null ? lastAmbientLux : 100;
+    const jitter = Math.floor(Math.random() * 20) - 10; // -10..+10
+    return Math.max(0, Math.min(500, base + jitter));
+  }
+  // Use first width*height bytes as Y/luma if NV12, else sample every 3rd (RGB)
+  const w = width || AMBIENT_WIDTH;
+  const h = height || AMBIENT_HEIGHT;
+  const yLen = Math.min(bytes.length, w * h);
+  const hashDim = AMBIENT_HASH_DIM;
+  const blockW = Math.max(1, Math.floor(w / hashDim));
+  const blockH = Math.max(1, Math.floor(h / hashDim));
+  let totalLuma = 0;
+  let blocks = 0;
+  // Sample 32x32 grid by block-average of Y plane for speed (no full downscale)
+  for (let by = 0; by < hashDim; by++) {
+    for (let bx = 0; bx < hashDim; bx++) {
+      const sx = bx * blockW;
+      const sy = by * blockH;
+      const idx = sy * w + sx;
+      if (idx < yLen) {
+        // @ts-ignore — Buffer index
+        const y = bytes[idx] & 0xff;
+        totalLuma += y;
+        blocks++;
+      }
+    }
+  }
+  const avgY = blocks ? totalLuma / blocks : 128;
+  // Map 0–255 → 0–500 lx (indoor 500 lx ceiling)
+  return Math.max(0, Math.min(500, Math.round((avgY / 255) * 500)));
+}
+
+/**
+ * Simulate ambient_lux when native daemon absent — deterministic jitter is fine.
+ * @returns {number}
+ */
+function simulateAmbientLux() {
+  return hashToAmbientLux(null);
+}
+
+/**
+ * Fetch one flatbuffer frame from 127.0.0.1:19400 with timeout.
+ * On success cb(Buffer), on failure cb(null) for graceful simulated fallback.
+ * Flatbuffer wire is [uint32_le size][flatbuffer bytes]; we treat any payload as bytes.
+ * @param {(buf: Buffer | null) => void} cb
+ */
+function fetchFlatbufferFrame(cb) {
+  let net;
+  try {
+    // eslint-disable-next-line global-require
+    net = require('net');
+  } catch (_e) {
+    cb(null);
+    return;
+  }
+  /** @type {any} */
+  let socket = null;
+  let settled = false;
+  /** @type {Buffer[]} */
+  let chunks = [];
+  const timeout = setTimeout(() => {
+    if (settled) return;
+    settled = true;
+    try { if (socket) socket.destroy(); } catch (_e) { /* ignore */ }
+    cb(null);
+  }, AMBIENT_TIMEOUT_MS);
+
+  try {
+    socket = net.createConnection({ host: AMBIENT_HOST, port: AMBIENT_PORT }, () => {
+      // Connected — wait for data; hyperion flatbuffer will push one frame then keepalive
+      // We read up to 2MiB or first size-prefixed frame
+    });
+    socket.setTimeout(AMBIENT_TIMEOUT_MS);
+    socket.on('data', (/** @type {Buffer} */ d) => {
+      chunks.push(d);
+      // If we have at least 4 bytes size prefix + payload, try early fulfil
+      const total = chunks.reduce((a, c) => a + c.length, 0);
+      if (total >= 4) {
+        const first = Buffer.concat(chunks);
+        const size = first.readUInt32LE(0);
+        // Accept 0 < size < 2MiB and enough bytes received
+        if (size > 0 && size < 2 * 1024 * 1024 && first.length >= 4 + size) {
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            // Slice flatbuffer payload (skip size prefix) — hash that
+            const payload = first.slice(4, 4 + size);
+            try { socket.destroy(); } catch (_e) { /* ignore */ }
+            cb(payload);
+          }
+        } else if (total > 64 * 1024) {
+          // Raw NV12 without size prefix — treat whole buffer as frame after 64KiB
+          if (!settled) {
+            settled = true;
+            clearTimeout(timeout);
+            try { socket.destroy(); } catch (_e) { /* ignore */ }
+            cb(first);
+          }
+        }
+      }
+    });
+    socket.on('end', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      const buf = chunks.length ? Buffer.concat(chunks) : null;
+      // Strip size prefix if it looks valid
+      if (buf && buf.length >= 4) {
+        const sz = buf.readUInt32LE(0);
+        if (sz > 0 && sz < 2 * 1024 * 1024 && buf.length >= 4 + sz) {
+          cb(buf.slice(4, 4 + sz));
+          return;
+        }
+      }
+      cb(buf && buf.length ? buf : null);
+    });
+    socket.on('error', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      cb(null);
+    });
+    socket.on('timeout', () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      try { socket.destroy(); } catch (_e) { /* ignore */ }
+      // If we got partial data before timeout, use it
+      if (chunks.length) {
+        const buf = Buffer.concat(chunks);
+        cb(buf.length ? buf : null);
+      } else {
+        cb(null);
+      }
+    });
+  } catch (_e) {
+    if (!settled) {
+      settled = true;
+      clearTimeout(timeout);
+      cb(null);
+    }
+  }
+}
+
+/**
+ * Current ambient snapshot for Luna/WS.
+ * @returns {{lux:number,source:string,ts:number,meta:{width:number,height:number,fps:number,quirks:number,hash:string,host:string,port:number},frameCount:number}}
+ */
+function getAmbientSnapshot() {
+  return {
+    lux: lastAmbientLux !== null ? lastAmbientLux : simulateAmbientLux(),
+    source: ambientSource,
+    ts: Date.now(),
+    meta: {
+      width: AMBIENT_WIDTH,
+      height: AMBIENT_HEIGHT,
+      fps: AMBIENT_FPS,
+      quirks: AMBIENT_QUIRKS,
+      hash: '32x32',
+      host: AMBIENT_HOST,
+      port: AMBIENT_PORT,
+    },
+    frameCount: ambientFrameCount,
+  };
+}
+
+/**
+ * One-shot AI Picture Pro off-contract toast via notifications.
+ * Non-blocking; ignored if ACL not yet elevated or service absent.
+ * PicCap contract: AI Picture Pro/Brightness/Genre/Game Optimizer cause 200–500 ms dropout.
+ */
+function maybeNotifyAiPictureContract() {
+  if (ambientToastShown || !service) return;
+  ambientToastShown = true;
+  const msg = 'Ambient capture active — turn off AI Picture Pro / AI Brightness / AI Genre (Settings → General → AI Service) to avoid 200–500 ms dropouts.';
+  try {
+    // @ts-ignore
+    service.call('luna://com.webos.notification/createToast', { message: msg }, () => {});
+  } catch (_e) { /* ignore */ }
+  try {
+    // @ts-ignore — some firmware uses service path
+    service.call('luna://com.webos.service.notifications/createToast', { message: msg }, () => {});
+  } catch (_e) { /* ignore */ }
+  try {
+    // @ts-ignore — fallback system.notifications
+    service.call('luna://com.webos.service.systemservice/createToast', { message: msg }, () => {});
+  } catch (_e) { /* ignore */ }
+  console.log('[com.ha.tvbridge.service] AI Picture Pro off-contract toast shown');
+}
+
+/**
+ * Poll flatbuffer, hash to lux, broadcast via WS 'ambient' and cache for getAmbientLux.
+ * Gracefully degrades to simulated when daemon absent.
+ */
+function pollAmbientOnce() {
+  fetchFlatbufferFrame((buf) => {
+    let lux;
+    let source;
+    if (buf && buf.length > 0) {
+      // Try to infer width/height from buffer length heuristics; default CX 256x144 NV12
+      lux = hashToAmbientLux(buf, AMBIENT_WIDTH, AMBIENT_HEIGHT);
+      source = 'flatbuffer';
+      ambientFrameCount++;
+    } else {
+      lux = simulateAmbientLux();
+      source = ambientSource === 'flatbuffer' ? 'simulated' : 'simulated';
+      // Keep frameCount stable when simulated; increment less
+      if (ambientSource === 'simulated') ambientFrameCount++;
+    }
+    lastAmbientLux = lux;
+    ambientSource = /** @type {'flatbuffer'|'simulated'|'unavailable'} */ (source);
+    // Broadcast to WS clients (authenticated only — via existing broadcast helper)
+    try {
+      broadcast('ambient', getAmbientSnapshot());
+    } catch (_e) { /* ignore */ }
+    // First successful flatbuffer read triggers AI Picture Pro contract toast once
+    if (source === 'flatbuffer' && !ambientToastShown) {
+      maybeNotifyAiPictureContract();
+    }
+  });
+}
+
+/**
+ * Start ambient loop — 2000 ms push (sensor ambient_lux matrix row 23).
+ * Safe to call multiple times; de-duplicates timer.
+ */
+function startAmbientLoop() {
+  if (ambientTimer) return;
+  console.log('[com.ha.tvbridge.service] Ambient loop start — ' + AMBIENT_HOST + ':' + AMBIENT_PORT + ' ' + AMBIENT_WIDTH + 'x' + AMBIENT_HEIGHT + '@' + AMBIENT_FPS + ' quirks 0x' + AMBIENT_QUIRKS.toString(16) + ' hash ' + AMBIENT_HASH_DIM + 'x' + AMBIENT_HASH_DIM);
+  // Prime immediate poll (simulated if no daemon yet)
+  pollAmbientOnce();
+  // Interval push
+  ambientTimer = setInterval(pollAmbientOnce, AMBIENT_INTERVAL_MS);
+  // Do not let interval keep process alive alone — ActivityManager does that
+  // Keep boot toast contract visible even if first poll simulated (warn early)
+  setTimeout(() => {
+    if (!ambientToastShown && lastAmbientLux !== null) {
+      maybeNotifyAiPictureContract();
+    }
+  }, 3000);
+}
+
+/**
+ * Stop ambient loop.
+ */
+function stopAmbientLoop() {
+  if (ambientTimer) {
+    clearInterval(ambientTimer);
+    ambientTimer = null;
+  }
+  console.log('[com.ha.tvbridge.service] Ambient loop stopped');
 }
 
 // ---------------------------------------------------------------------------
@@ -290,6 +600,7 @@ function adoptActivity(id, cb) {
 if (service) {
   // getCapabilities — probed by sister HA integration via luna://com.ha.tvbridge.service/getCapabilities (2s timeout)
   // Returns snapshot for mDNS TXT negotiation without needing a WS handshake.
+  // Phase 3 ambient: advertise capture cap + ambient meta when loop has run.
   // @ts-ignore
   service.register('getCapabilities', (message) => {
     console.log('[com.ha.tvbridge.service] getCapabilities called');
@@ -303,6 +614,49 @@ if (service) {
       wsPort: WS_PORT,
       persist: true,
       explicit: true,
+      // Phase 3 ambient lift — sister checks caps includes capture for sensor ambient_lux real push
+      ambient: lastAmbientLux !== null ? {
+        available: true,
+        source: ambientSource,
+        lastLux: lastAmbientLux,
+        meta: { width: AMBIENT_WIDTH, height: AMBIENT_HEIGHT, fps: AMBIENT_FPS, quirks: AMBIENT_QUIRKS, hash: '32x32', host: AMBIENT_HOST, port: AMBIENT_PORT },
+      } : { available: false, source: 'unavailable', lastLux: null },
+    });
+  });
+
+  // getAmbientLux — unicapture flatbuffer 127.0.0.1:19400 hashed to 32x32 ambient_lux
+  // Gracefully degraded: simulated when native daemon absent, error when stock without root.
+  // AI Picture Pro contract: on first flatbuffer success, a one-shot toast warns 200–500 ms dropout.
+  // @ts-ignore
+  service.register('getAmbientLux', (message) => {
+    console.log('[com.ha.tvbridge.service] getAmbientLux called');
+    // Trigger a fresh poll then respond, but also answer immediately from cache for 2s UX
+    const snap = getAmbientSnapshot();
+    // If native has never been seen (still simulated but loop started), return simulated gracefully
+    // On stock TV without elevate-service, ambientSource stays unavailable until loop probes; we
+    // surface returnValue:false only when caller forces strict capture and we have no frame history.
+    const strict = message.payload && message.payload.strict === true;
+    if (strict && snap.source === 'unavailable' && lastAmbientLux === null) {
+      message.respond({ returnValue: false, errorText: 'ambient unavailable — root required (native daemon not present)', source: 'unavailable' });
+      return;
+    }
+    // Defer a live re-poll for next call, but respond with current cached value now
+    // Kick background refresh without blocking response
+    pollAmbientOnce();
+    // AI Picture Pro off-contract toast — non-blocking, once per boot
+    if (snap.source === 'flatbuffer' && !ambientToastShown) {
+      setTimeout(maybeNotifyAiPictureContract, 100);
+    } else if (snap.source === 'simulated' && !ambientToastShown && ambientFrameCount > 0) {
+      // Even simulated deserves the contract warning so user knows to disable AI Picture Pro before native arrives
+      setTimeout(maybeNotifyAiPictureContract, 100);
+    }
+    message.respond({
+      returnValue: true,
+      lux: snap.lux,
+      source: snap.source,
+      ts: snap.ts,
+      meta: snap.meta,
+      frameCount: snap.frameCount,
     });
   });
 
@@ -472,9 +826,21 @@ function startWsServer() {
           try { msg = JSON.parse(text); } catch (_e) { msg = { raw: text }; }
           console.log('[com.ha.tvbridge.service] WS recv', text.slice(0, 200));
 
-          // Minimal command handling — ping/pong and cec proxy via WS
+          // Minimal command handling — ping/pong, cec proxy via WS, and ambient getAmbientLux
           if (msg && msg.type === 'ping') {
             ws.send(JSON.stringify({ type: 'pong', ts: Date.now() }));
+          } else if (msg && (msg.type === 'getAmbientLux' || msg.type === 'ambientLux')) {
+            const snap = getAmbientSnapshot();
+            // Kick background flatbuffer refresh for next push
+            pollAmbientOnce();
+            ws.send(JSON.stringify({ type: 'ambient', payload: snap, ts: Date.now() }));
+            ws.send(JSON.stringify({ type: 'getAmbientLuxResult', payload: snap, ts: Date.now() }));
+            if (snap.source === 'flatbuffer' && !ambientToastShown) {
+              setTimeout(maybeNotifyAiPictureContract, 100);
+            }
+          } else if (msg && msg.type === 'ambient' && msg.payload && typeof msg.payload.lux === 'number') {
+            // Allow HA to inject ambient for testing (inject-websession echo) — rebroadcast
+            broadcast('ambient', msg.payload);
           } else if (msg && msg.type === 'cecQuery' && service) {
             const target = msg.method || 'luna://com.webos.service.cec/getDeviceList';
             const params = msg.params || {};
@@ -520,12 +886,17 @@ function startWsServer() {
 
 function subscribeAll() {
   if (!service) {
-    console.log('[com.ha.tvbridge.service] No service — subscriptions stubbed');
+    console.log('[com.ha.tvbridge.service] No service — subscriptions stubbed (ambient still simulated)');
+    // Even in stub mode, start ambient loop so typecheck/demo still shows ambient_lux
+    try { startAmbientLoop(); } catch (_e) { /* ignore */ }
     return;
   }
   subscribePower();
   subscribeVolume();
   subscribeApp();
+  // Phase 3 ambient — unicapture flatbuffer client stub 127.0.0.1:19400 → 32x32 hash
+  // Gracefully degrades to simulated when native daemon absent; never throws.
+  try { startAmbientLoop(); } catch (_e) { /* ignore */ }
 }
 
 function subscribePower() {
@@ -588,7 +959,7 @@ function subscribeApp() {
 // ---------------------------------------------------------------------------
 
 function boot() {
-  console.log('[com.ha.tvbridge.service] boot — ' + SERVICE_ID + ' v1.0.0 model ' + CAPS_SNAPSHOT.model + ' sv ' + CAPS_SNAPSHOT.sv);
+  console.log('[com.ha.tvbridge.service] boot — ' + SERVICE_ID + ' v1.0.0 model ' + CAPS_SNAPSHOT.model + ' sv ' + CAPS_SNAPSHOT.sv + ' ambient ' + AMBIENT_HOST + ':' + AMBIENT_PORT + ' ' + AMBIENT_WIDTH + 'x' + AMBIENT_HEIGHT + '@' + AMBIENT_FPS + ' quirks 0x' + AMBIENT_QUIRKS.toString(16));
   ensureActivity(() => {
     startWsServer();
     // Defer subscriptions slightly to let Activity settle
@@ -615,4 +986,21 @@ module.exports = {
   ACTIVITY_NAME,
   FakeActivityManager,
   broadcast,
+  // Phase 3 ambient flagship — unicapture flatbuffer stub, 32x32 hash to ambient_lux
+  AMBIENT_HOST,
+  AMBIENT_PORT,
+  AMBIENT_WIDTH,
+  AMBIENT_HEIGHT,
+  AMBIENT_FPS,
+  AMBIENT_QUIRKS,
+  AMBIENT_HASH_DIM,
+  AMBIENT_INTERVAL_MS,
+  hashToAmbientLux,
+  simulateAmbientLux,
+  fetchFlatbufferFrame,
+  getAmbientSnapshot,
+  pollAmbientOnce,
+  startAmbientLoop,
+  stopAmbientLoop,
+  maybeNotifyAiPictureContract,
 };

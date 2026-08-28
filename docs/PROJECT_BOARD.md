@@ -39,8 +39,8 @@ All 17 items now populated via `gh project item-edit` with field IDs:
 | #9 sister second-mode | 1 — Detect+Install (HA) | B requiredPermissions | L | P0 — Must | **Done** | 2026-09-15 | 2026-09-29 | Phase 1 — Detect+Install `22177f7e` | 5 stubs pass |
 | #10 JS+ActivityManager | 2 — JS+ActivityManager | B requiredPermissions | M | P0 — Must | **In Progress** | 2026-09-29 | 2026-10-13 | Phase 2 — JS service `8dd8aac5` | **ares-package + npm typecheck ✔** |
 | #11 CEC hub | 2 — JS+ActivityManager | C root-only | M | P1 — Should | **In Progress** | 2026-09-29 | 2026-10-13 | Phase 2 — JS service `8dd8aac5` | CEC proxy code |
-| #12 unicapture native | 3 — Ambient flagship | C root-only | XL | P0 — Must | Todo | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` | queued |
-| #13 camera ambient_lux | 3 — Ambient flagship | C root-only | L | P0 — Must | Todo | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` | sensor stub available False |
+| #12 unicapture native | 3 — Ambient flagship | C root-only | XL | P0 — Must | **In Progress** | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` | **native/ + flatbuffer 19400** |
+| #13 camera ambient_lux | 3 — Ambient flagship | C root-only | L | P0 — Must | **In Progress** | 2026-10-13 | 2026-10-27 | Phase 3 — Ambient `4215abe1` | **getAmbientLux + ambient WS** |
 | #14 Enact dashboard | 4 — Enact+Voice | B requiredPermissions | L | P1 — Should | Todo | 2026-10-27 | 2026-11-10 | Phase 4 — Enact+Voice `33d314cc` | queued |
 | #15 Wyoming voice | 4 — Enact+Voice | C root-only | XL | P2 — Could | Todo | 2026-10-27 | 2026-11-10 | Phase 4 — Enact+Voice `33d314cc` | queued |
 | #16 hassfest Platinum | 5 — Platinum | A stock | L | P0 — Must | Todo | 2026-11-10 | 2026-12-01 | Phase 5 — Platinum `12e7167c` | quality_scale.yaml done 2 |

@@ -1,0 +1,142 @@
+#!/bin/sh
+# com.ha.tvbridge.ambient — webosbrew init.d ambient daemon (Phase 3 scaffold)
+#
+# Installed to: /var/lib/webosbrew/init.d/com.ha.tvbridge.ambient (executable)
+# Sourced by:  /var/lib/webosbrew/startup.sh via run-parts /var/lib/webosbrew/init.d
+# Pattern re-used from webosbrew/hyperion-webos unicapture (libvtcapture + libhalgal
+# flatbuffer 127.0.0.1:19400 at 256x144@30 CX budget, quirks 0x1|0x2|0x40|0x100)
+#
+# Refs:
+#   - https://github.com/webosbrew/hyperion-webos (flatbuffer, quirks, unicapture)
+#   - https://github.com/TBSniller/piccap (AI Picture Pro dropout warning)
+#   - https://github.com/webosbrew/webos-homebrew-channel/blob/main/services/elevate-service.ts
+#
+# Behaviour:
+#   - If native binary /media/developer/apps/usr/palm/services/com.ha.tvbridge.service/bin/hyperion-webos
+#     exists, launch unicapture with CX quirks and forward to JS service on 127.0.0.1:19400.
+#   - If binary absent (scaffold phase), daemon is a no-op forwarder shim that keeps
+#     the JS service's flatbuffer client stub graceful (simulated ambient_lux).
+#   - Must never block startup.sh — all work is backgrounded with respawn loop.
+#
+# Permissions:
+#   Requires elevate-service patch: roles.d allowedNames ['*'] + client-permissions ['all']
+#   + ls-control scan-services. See native/elevate-service.md.
+#
+# Usage on TV (10.1.1.209):
+#   scp native/init.d/com.ha.tvbridge.ambient root@10.1.1.209:/var/lib/webosbrew/init.d/com.ha.tvbridge.ambient
+#   chmod +x /var/lib/webosbrew/init.d/com.ha.tvbridge.ambient
+#   /var/lib/webosbrew/init.d/com.ha.tvbridge.ambient start   # manual test
+#   tail -f /tmp/var/log/messages | grep com.ha.tvbridge.ambient
+
+set -eu
+
+SERVICE_ID="com.ha.tvbridge.ambient"
+SERVICE_DIR="/media/developer/apps/usr/palm/services/com.ha.tvbridge.service"
+BIN="${SERVICE_DIR}/bin/hyperion-webos"
+LOG_TAG="com.ha.tvbridge.ambient"
+FLAT_HOST="127.0.0.1"
+FLAT_PORT="19400"
+WIDTH="256"
+HEIGHT="144"
+FPS="30"
+# CX quirks: 0x1 QUIRK_DILE_VT_CREATE_EX | 0x2 QUIRK_DILE_VT_NO_FREEZE_CAPTURE |
+#            0x40 QUIRK_ALTERNATIVE_DUMP_LOCATION_5 | 0x100 QUIRK_VTCAPTURE_FORCE_CAPTURE = 0x143 = 323
+QUIRKS="323"
+PIDFILE="/tmp/${SERVICE_ID}.pid"
+LOGFILE="/tmp/${SERVICE_ID}.log"
+
+# Resolve JS service flatbuffer forwarder — when native is absent, JS service simulates.
+# This shim ensures the port is held open so JS client does not spin on ECONNREFUSED
+# (optional; JS service already degrades gracefully without it).
+ensure_forwarder() {
+  # If native binary exists, prefer unicapture native path via hyperion-webos.
+  if [ -x "${BIN}" ]; then
+    return 0
+  fi
+  # Scaffold shim: hold 19400 with a minimal TCP echo if nc is present (non-blocking).
+  # If nc absent, do nothing — JS will simulate.
+  if command -v nc >/dev/null 2>&1; then
+    # Background a dummy listener that accepts and closes (flatbuffer stub) — 1 shot loop
+    ( while true; do nc -l -p "${FLAT_PORT}" -c 'cat /dev/null' 2>/dev/null || nc -l "${FLAT_PORT}" 2>/dev/null || sleep 5; done ) &
+    echo $! > "${PIDFILE}.forwarder"
+    logger -t "${LOG_TAG}" "scaffold forwarder on ${FLAT_HOST}:${FLAT_PORT} (native binary absent, JS will simulate)"
+  fi
+}
+
+start() {
+  logger -t "${LOG_TAG}" "start — ${SERVICE_ID} width=${WIDTH} height=${HEIGHT} fps=${FPS} quirks=${QUIRKS} flat=${FLAT_HOST}:${FLAT_PORT}"
+
+  # Failsafe guard — if webosbrew_failsafe exists, do not autostart ambient (recovery boot)
+  if [ -f /var/luna/preferences/webosbrew_failsafe ]; then
+    logger -t "${LOG_TAG}" "failsafe flag present — skipping ambient autostart"
+    exit 0
+  fi
+
+  if [ -x "${BIN}" ]; then
+    # Native unicapture path — respawn loop in background
+    (
+      while true; do
+        logger -t "${LOG_TAG}" "launching ${BIN} --quirks ${QUIRKS} -f ${FLAT_HOST}:${FLAT_PORT} --width ${WIDTH} --height ${HEIGHT} --fps ${FPS} --unicapture"
+        # hyperion-webos flags mirror PicCap servicefiles:
+        # --service com.ha.tvbridge.ambient --flatbuf-host 127.0.0.1 --flatbuf-port 19400
+        # Library path for vtcapture/halgal backends:
+        export LD_LIBRARY_PATH="${SERVICE_DIR}/lib:${LD_LIBRARY_PATH:-}"
+        "${BIN}" \
+          --quirks "${QUIRKS}" \
+          --width "${WIDTH}" --height "${HEIGHT}" --fps "${FPS}" \
+          --flatbuf-host "${FLAT_HOST}" --flatbuf-port "${FLAT_PORT}" \
+          --unicapture 2>&1 | logger -t "${LOG_TAG}" || true
+        logger -t "${LOG_TAG}" "hyperion-webos exited $? — respawn in 5s"
+        sleep 5
+      done
+    ) &
+    echo $! > "${PIDFILE}"
+    logger -t "${LOG_TAG}" "ambient daemon backgrounded pid $(cat ${PIDFILE})"
+    # Notify JS service that capture cap is now live (JS polls 127.0.0.1:19400 anyway)
+    # JS service's getCapabilities will advertise capture after successful flatbuffer read.
+  else
+    logger -t "${LOG_TAG}" "native binary absent at ${BIN} — scaffold mode, forwarding to JS service simulated path"
+    ensure_forwarder
+    # No native — JS service will hash simulated frames to 32x32 ambient_lux
+    # Keep a marker so HA diagnostics knows to expect simulated source:
+    echo "simulated" > "/tmp/${SERVICE_ID}.source"
+  fi
+
+  # One-shot elevate check — ensure roles.d scan has run (idempotent)
+  if [ -x /usr/bin/ls-control ]; then
+    ls-control scan-services 2>&1 | logger -t "${LOG_TAG}" || true
+  fi
+}
+
+stop() {
+  logger -t "${LOG_TAG}" "stop — ${SERVICE_ID}"
+  if [ -f "${PIDFILE}" ]; then
+    kill "$(cat ${PIDFILE})" 2>/dev/null || true
+    rm -f "${PIDFILE}"
+  fi
+  if [ -f "${PIDFILE}.forwarder" ]; then
+    kill "$(cat ${PIDFILE}.forwarder)" 2>/dev/null || true
+    rm -f "${PIDFILE}.forwarder"
+  fi
+  # Do not kill HyperHDR/Hyperion loader if present — it is a sibling Homebrew app
+  pkill -f "hyperion-webos.*${FLAT_PORT}" 2>/dev/null || true
+}
+
+case "${1:-start}" in
+  start) start ;;
+  stop) stop ;;
+  restart) stop; sleep 1; start ;;
+  status)
+    if [ -f "${PIDFILE}" ] && kill -0 "$(cat ${PIDFILE})" 2>/dev/null; then
+      echo "${SERVICE_ID} running pid $(cat ${PIDFILE}) flat ${FLAT_HOST}:${FLAT_PORT} quirks ${QUIRKS}"
+    elif [ -f "/tmp/${SERVICE_ID}.source" ]; then
+      echo "${SERVICE_ID} scaffold (simulated) — native binary absent, JS service will simulate 32x32 hash"
+    else
+      echo "${SERVICE_ID} not running"
+      exit 1
+    fi
+    ;;
+  *) echo "Usage: $0 {start|stop|restart|status}" >&2; exit 1 ;;
+esac
+
+exit 0
