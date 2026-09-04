@@ -14,8 +14,8 @@
     "prepare": "echo prepare ok"
   },
   "devDependencies": {
-    "typescript": "^5.5.0",
-    "@types/node": "^20.14.0",
+    "typescript": "^7.0.2",
+    "@types/node": "^26.4.0",
     "@types/ws": "^8.5.12"
   },
   "dependencies": {
